@@ -1,0 +1,265 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────────────
+   DESIGN SYSTEM — neutral base (Linear/Notion/Vercel feel).
+   Brand colors (navy/teal/green) are ACCENTS only: badges, IDs, chart series,
+   active-nav border, focus rings, 3px card-top accents. Never on surfaces.
+   Old variable names (--navy-*, --teal, --text-muted…) are aliased to the new
+   tokens via var() references, so they cascade correctly in dark mode too.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg-page: #f9fafb;
+  --bg-surface: #ffffff;
+  --bg-sunken: #f3f4f6;
+  --bg-hover: #f1f5f9;
+
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+
+  /* Accents (brand) */
+  --accent-navy: #1b2d6b;
+  --accent-teal: #0ea5c5;
+  --accent-green: #4a9b3c;
+
+  /* Semantic accents (icons / small text / chart) */
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
+
+  /* Status tokens */
+  --status-success-bg: #f0fdf4; --status-success-text: #166534; --status-success-border: #bbf7d0;
+  --status-warning-bg: #fffbeb; --status-warning-text: #92400e; --status-warning-border: #fde68a;
+  --status-danger-bg: #fef2f2; --status-danger-text: #991b1b; --status-danger-border: #fecaca;
+  --status-info-bg: #eff6ff; --status-info-text: #1e40af; --status-info-border: #bfdbfe;
+  --status-pending-bg: #fffbeb; --status-pending-text: #b45309; --status-pending-border: #fcd34d;
+
+  /* Buttons */
+  --btn-primary-bg: #111827; --btn-primary-text: #ffffff; --btn-primary-hover: #1f2937;
+  --btn-secondary-bg: #ffffff; --btn-secondary-text: #374151; --btn-secondary-border: #d1d5db; --btn-secondary-hover: #f9fafb;
+
+  /* Fonts */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* ── Legacy aliases → new tokens (keep existing pages working) ── */
+  --navy-darkest: var(--bg-page);
+  --navy-dark: var(--bg-sunken);
+  --navy-base: var(--bg-surface);
+  --navy-mid: var(--bg-surface);
+  --navy-light: var(--bg-hover);
+  --navy-primary: var(--accent-navy);
+
+  --text-muted: var(--text-secondary);
+  --text-dim: var(--text-tertiary);
+
+  --teal: var(--accent-teal);
+  --teal-dim: var(--accent-teal);
+  --teal-glow: rgba(14, 165, 197, 0.12);
+  --green: var(--accent-green);
+  --green-light: var(--accent-green);
+  --green-dark: var(--accent-green);
+
+  --border-hover: var(--border-strong);
+  --border-active: var(--status-info-border);
+
+  --gradient-brand: linear-gradient(var(--accent-navy), var(--accent-navy));
+  --gradient-surface: linear-gradient(var(--bg-surface), var(--bg-page));
+  --gradient-card-top: linear-gradient(var(--bg-surface), var(--bg-surface));
+}
+
+html.dark {
+  --bg-page: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-sunken: #0f172a;
+  --bg-hover: #263148;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #475569;
+
+  --border: #1f2937;
+  --border-strong: #334155;
+
+  --accent-navy: #6b8eff;
+  --accent-teal: #38bdf8;
+  --accent-green: #4ade80;
+
+  --success: #4ade80;
+  --warning: #fcd34d;
+  --danger: #f87171;
+
+  --status-success-bg: #052e16; --status-success-text: #86efac; --status-success-border: #14532d;
+  --status-warning-bg: #1c1400; --status-warning-text: #fcd34d; --status-warning-border: #78350f;
+  --status-danger-bg: #1c0000; --status-danger-text: #fca5a5; --status-danger-border: #7f1d1d;
+  --status-info-bg: #0c1a2e; --status-info-text: #93c5fd; --status-info-border: #1e3a5f;
+  --status-pending-bg: #1c1000; --status-pending-text: #fde68a; --status-pending-border: #78350f;
+
+  --btn-primary-bg: #f1f5f9; --btn-primary-text: #0f172a; --btn-primary-hover: #e2e8f0;
+  --btn-secondary-bg: transparent; --btn-secondary-text: #94a3b8; --btn-secondary-border: #334155; --btn-secondary-hover: #1e293b;
+}
+
+/* ── Keyframes (minimal, purposeful) ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+@keyframes overlayShow { from { opacity: 0; } to { opacity: 1; } }
+@keyframes contentShow {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes slideInRight {
+  from { transform: translateX(calc(100% + 24px)); }
+  to { transform: translateX(0); }
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--bg-page); }
+  input, textarea, select { font-family: var(--font-body); }
+  input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
+}
+
+@layer components {
+  /* motion-streak is intentionally a no-op now (brand-on-surface removed) */
+  .motion-streak { position: relative; }
+
+  .font-display { font-family: var(--font-display); }
+  .font-mono { font-family: var(--font-mono); }
+  .font-body { font-family: var(--font-body); }
+
+  /* Small navy accent strip (3px borders / active-nav). Solid navy, not rainbow. */
+  .gradient-brand { background: var(--accent-navy); }
+  .gradient-card { background: var(--bg-surface); }
+
+  .tv-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; }
+  .tv-card-flat { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; }
+
+  /* Primary CTA — dark/neutral, NO brand color */
+  .btn-brand, .btn-teal {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    font-family: var(--font-body);
+    font-weight: 500;
+    border-radius: 8px;
+    transition: background-color 120ms ease;
+  }
+  .btn-brand:hover:not(:disabled), .btn-teal:hover:not(:disabled) { background: var(--btn-primary-hover); }
+  .btn-brand:disabled, .btn-teal:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Secondary / ghost */
+  .btn-ghost {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border: 1px solid var(--btn-secondary-border);
+    border-radius: 8px;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--btn-secondary-hover); border-color: var(--border-strong); }
+
+  .radix-overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+    animation: overlayShow 150ms ease; z-index: 50;
+  }
+  .radix-content { animation: contentShow 150ms ease; }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--bg-hover) 50%, var(--bg-sunken) 75%);
+    background-size: 1000px 100%;
+    animation: shimmer 1.5s linear infinite;
+    border-radius: 4px;
+  }
+
+  /* sidebar watermark removed in the neutral redesign */
+  .speed-watermark { display: none; }
+
+  .tv-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+  }
+  .toast-root[data-state='open'] { animation: slideInRight 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+  /* Form inputs (shared look) */
+  .tv-input {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .tv-input:focus { border-color: var(--accent-teal); box-shadow: 0 0 0 3px rgba(14, 165, 197, 0.1); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GOD MODE — amber identity in BOTH light and dark. Surfaces follow the global
+   theme (html.dark): light mode = light surfaces + amber; dark mode = the
+   signature near-black + amber. Toggle via the Sun/Moon in the God status bar.
+   ───────────────────────────────────────────────────────────── */
+.god-mode {
+  /* amber accent kept in both modes; surfaces inherit :root (light) */
+  --god-accent: #d97706;
+  --god-accent-dim: rgba(217, 119, 6, 0.12);
+  --god-accent-text: #b45309; /* amber-700 — readable on light surfaces */
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+html.dark .god-mode {
+  --bg-page: #0a0a0a;
+  --bg-surface: #111111;
+  --bg-sunken: #0a0a0a;
+  --bg-hover: #1a1a1a;
+  --text-primary: #fafafa;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #4a4a4a;
+  --border: #222222;
+  --border-strong: #333333;
+  --god-accent-dim: rgba(217, 119, 6, 0.16);
+  --god-accent-text: #fcd34d; /* amber-300 — readable on near-black */
+}
+.god-accent-btn {
+  background: var(--god-accent);
+  color: #0a0a0a;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: filter 120ms ease;
+}
+.god-accent-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.god-accent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
