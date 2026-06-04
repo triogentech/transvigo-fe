@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useFuelStations } from '../hooks/useFuelStations';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
-import type { CreateFuelStationBody } from '../types/api.types';
+import { matchesSearch } from '../lib/clientList';
+import type { CreateFuelStationBody, FuelStation } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -22,12 +24,24 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', isActive: true };
 
 export default function FuelStationsPage() {
-  const { fuelStations, loading, error, refetch, createFuelStation } = useFuelStations();
+  const { allFuelStations, loading, error, refetch, createFuelStation } = useFuelStations();
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const rows = React.useMemo(
+    () =>
+      (allFuelStations as FuelStation[]).filter(
+        (s) =>
+          matchesSearch(s, ['name'], search) &&
+          (!statusFilter || String(s.isActive ?? true) === statusFilter),
+      ),
+    [allFuelStations, search, statusFilter],
+  );
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -81,9 +95,22 @@ export default function FuelStationsPage() {
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
+      <div className="flex gap-3 flex-wrap items-center">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search stations…" />
+        <select
+          className="tv-input"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All Statuses</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+
       <DataTable
         columns={columns}
-        data={fuelStations}
+        data={rows}
         loading={loading}
         emptyLabel="No fuel stations found"
         pageSize={10}

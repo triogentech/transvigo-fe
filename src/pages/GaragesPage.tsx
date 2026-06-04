@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useGarages } from '../hooks/useGarages';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
-import type { CreateGarageBody } from '../types/api.types';
+import { matchesSearch } from '../lib/clientList';
+import type { CreateGarageBody, Garage } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -22,12 +24,24 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', isActive: true };
 
 export default function GaragesPage() {
-  const { garages, loading, error, refetch, createGarage } = useGarages();
+  const { allGarages, loading, error, refetch, createGarage } = useGarages();
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const rows = React.useMemo(
+    () =>
+      (allGarages as Garage[]).filter(
+        (g) =>
+          matchesSearch(g, ['name'], search) &&
+          (!statusFilter || String(g.isActive ?? true) === statusFilter),
+      ),
+    [allGarages, search, statusFilter],
+  );
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -81,9 +95,22 @@ export default function GaragesPage() {
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
+      <div className="flex gap-3 flex-wrap items-center">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search garages…" />
+        <select
+          className="tv-input"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All Statuses</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+
       <DataTable
         columns={columns}
-        data={garages}
+        data={rows}
         loading={loading}
         emptyLabel="No garages found"
         pageSize={10}
