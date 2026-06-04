@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useCities } from '../hooks/useCities';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
-import type { CreateCityBody } from '../types/api.types';
+import { matchesSearch } from '../lib/clientList';
+import type { CreateCityBody, City } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // ui.jsx is a JS module — pull components as any to avoid prop-shape mismatches
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,7 +25,12 @@ const EMPTY_FORM: CreateCityBody = {
 };
 
 export default function CitiesPage() {
-  const { cities, loading, error, refetch, createCity } = useCities();
+  const { allCities, loading, error, refetch, createCity } = useCities();
+  const [search, setSearch] = useState('');
+  const rows = React.useMemo(
+    () => (allCities as City[]).filter((c) => matchesSearch(c, ['name', 'cityCode', 'state', 'stateCode'], search)),
+    [allCities, search],
+  );
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
@@ -78,9 +85,11 @@ export default function CitiesPage() {
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
+      <SearchInput value={search} onChange={setSearch} placeholder="Search cities…" />
+
       <DataTable
         columns={columns}
-        data={cities}
+        data={rows}
         loading={loading}
         emptyLabel="No cities found"
         pageSize={10}

@@ -26,15 +26,32 @@ export const updateRolePermissions = (
 export const getOrgUsers = (): Promise<OrgUser[]> =>
   get<{ data: OrgUser[] }>('/api/admin/users').then((r) => r.data);
 
+export interface UserCredentialResult {
+  user: OrgUser;
+  /** Present (generated) when the admin didn't set a password; share securely. */
+  tempPassword: string | null;
+}
+
 export const inviteUser = (body: {
   email: string;
   username: string;
   roleId: string;
-}): Promise<OrgUser> =>
-  post<{ user: OrgUser }>('/api/admin/users', body).then((r) => r.user);
+  password?: string;
+}): Promise<UserCredentialResult> =>
+  post<UserCredentialResult>('/api/admin/users', body);
 
 export const changeUserRole = (userId: string, roleId: string): Promise<OrgUser> =>
   put<{ user: OrgUser }>('/api/admin/users/' + userId + '/role', { roleId }).then((r) => r.user);
+
+/** Reset a member's password. Omit newPassword to generate a temporary one. */
+export const resetUserPassword = (
+  userId: string,
+  newPassword?: string,
+): Promise<{ message: string; tempPassword: string | null }> =>
+  post<{ message: string; tempPassword: string | null }>(
+    '/api/admin/users/' + userId + '/reset-password',
+    { newPassword },
+  );
 
 export const deactivateUser = (userId: string): Promise<void> =>
   del<void>('/api/admin/users/' + userId);

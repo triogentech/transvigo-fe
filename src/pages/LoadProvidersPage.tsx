@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useLoadProviders } from '../hooks/useLoadProviders';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
-import type { CreateLoadProviderBody } from '../types/api.types';
+import { matchesSearch } from '../lib/clientList';
+import type { CreateLoadProviderBody, LoadProvider } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -29,7 +31,12 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function LoadProvidersPage() {
-  const { loadProviders, loading, error, refetch, createLoadProvider } = useLoadProviders();
+  const { allLoadProviders, loading, error, refetch, createLoadProvider } = useLoadProviders();
+  const [search, setSearch] = useState('');
+  const rows = React.useMemo(
+    () => (allLoadProviders as LoadProvider[]).filter((lp) => matchesSearch(lp, ['name', 'shortName', 'contactNumber'], search)),
+    [allLoadProviders, search],
+  );
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
@@ -101,9 +108,11 @@ export default function LoadProvidersPage() {
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
+      <SearchInput value={search} onChange={setSearch} placeholder="Search load providers…" />
+
       <DataTable
         columns={columns}
-        data={loadProviders}
+        data={rows}
         loading={loading}
         emptyLabel="No load providers found"
         pageSize={10}

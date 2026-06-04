@@ -7,6 +7,7 @@ import { errMessage } from '../api/client';
 import { shortDate, formatINR } from '../lib/utils.js';
 import type { CreateFuelLogBody, FuelLog, FuelType } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -54,6 +55,18 @@ export default function FuelLogsPage() {
     (filterOptions?.vehicles ?? []).forEach((o) => m.set(o.value, o.label));
     return m;
   }, [filterOptions]);
+
+  const [search, setSearch] = useState('');
+  const searchedRows = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return fuelLogs;
+    return fuelLogs.filter(
+      (f) =>
+        (f.fuelType ?? '').toLowerCase().includes(q) ||
+        (f.vehicleId ? (vehicleNameById.get(f.vehicleId) ?? '').toLowerCase().includes(q) : false) ||
+        shortDate(f.date).toLowerCase().includes(q),
+    );
+  }, [fuelLogs, search, vehicleNameById]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -181,10 +194,10 @@ export default function FuelLogsPage() {
         </div>
       )}
 
-      {/* Filter bar */}
-      {(vehicleOptions.length > 1 || stationOptions.length > 1) && (
-        <div className="flex gap-3 flex-wrap">
-          {vehicleOptions.length > 1 && (
+      {/* Search + filter bar */}
+      <div className="flex gap-3 flex-wrap items-center">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search fuel logs…" />
+        {vehicleOptions.length > 1 && (
             <select
               className="tv-input"
               onChange={(e) => setFilters({ vehicleId: e.target.value || undefined, page: 1 })}
@@ -200,12 +213,11 @@ export default function FuelLogsPage() {
               {stationOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           )}
-        </div>
-      )}
+      </div>
 
       <DataTable
         columns={columns}
-        data={fuelLogs}
+        data={searchedRows}
         loading={loading}
         emptyLabel="No fuel logs found"
         pageSize={10}

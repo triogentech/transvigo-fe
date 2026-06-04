@@ -83,9 +83,9 @@ export function useOrgUsers() {
   useEffect(() => { void refetch(); }, [refetch]);
 
   const inviteUser = async (body: Parameters<typeof adminApi.inviteUser>[0]) => {
-    const user = await adminApi.inviteUser(body);
+    const result = await adminApi.inviteUser(body);
     await refetch();
-    return user;
+    return result;
   };
 
   const changeUserRole = async (userId: string, roleId: string) => {
@@ -94,10 +94,16 @@ export function useOrgUsers() {
     return user;
   };
 
+  const resetUserPassword = async (userId: string, newPassword?: string) => {
+    const result = await adminApi.resetUserPassword(userId, newPassword);
+    await refetch();
+    return result;
+  };
+
   const deactivateUser = async (userId: string) => {
     await adminApi.deactivateUser(userId);
     await refetch();
   };
 
-  return { users, loading, error, refetch, inviteUser, changeUserRole, deactivateUser };
+  return { users, loading, error, refetch, inviteUser, changeUserRole, resetUserPassword, deactivateUser };
 }

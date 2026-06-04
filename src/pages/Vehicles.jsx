@@ -11,6 +11,7 @@ import { formatNum, daysUntil, shortDate, expiryColor } from '../lib/utils.js';
 import { useVehiclesPage } from '../hooks/pages/useVehiclesPage';
 import { useVehiclesActions } from '../hooks/actions/useVehiclesActions';
 import { getSelect } from '../api/select.api';
+import { SearchInput } from '../components/SearchInput';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 
@@ -670,6 +671,7 @@ export default function Vehicles() {
   const [formVehicle, setFormVehicle] = useState(null);
   const [viewVehicle, setViewVehicle] = useState(null);
   const [assignVehicle, setAssignVehicle] = useState(null);
+  const [search, setSearch] = useState('');
 
   const onView = (v) => setViewVehicle(v);
   const onEdit = (v) => { setFormVehicle(v); setFormOpen(true); };
@@ -695,6 +697,13 @@ export default function Vehicles() {
 
       {/* 2) Error banner */}
       {error && <ErrorBanner message={error} onRetry={refetch} />}
+
+      {/* Search (server-side: vehicle number / model) */}
+      <SearchInput
+        value={search}
+        onChange={(v) => { setSearch(v); setFilters({ search: v || undefined, page: 1 }); }}
+        placeholder="Search vehicles…"
+      />
 
       {/* 3) View Toggle */}
       <SegmentTabs

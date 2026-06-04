@@ -11,6 +11,7 @@ import {
   Popover, Pill, StatusBadge,
 } from '../components/ui.jsx';
 import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../components/states.tsx';
+import { SearchInput } from '../components/SearchInput';
 import { cx } from '../lib/utils.js';
 import { formatINR, relTime } from '../lib/utils.js';
 import { useTransactionsPage } from '../hooks/pages/useTransactionsPage';
@@ -92,6 +93,7 @@ export default function Transactions() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
 
   // ── Summary from server (no client-side recompute) ──
   const totalDebit  = summary?.totalDebits  ?? 0;
@@ -392,6 +394,13 @@ export default function Transactions() {
 
       {/* Error banner */}
       {error && <ErrorBanner message={error} onRetry={refetch} />}
+
+      {/* Search (server-side: ref / description) */}
+      <SearchInput
+        value={search}
+        onChange={(v) => { setSearch(v); setFilters({ search: v === '' ? undefined : v, page: 1 }); }}
+        placeholder="Search transactions…"
+      />
 
       {/* 2 ── Summary Bar (server-computed — no client-side recompute) */}
       <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>

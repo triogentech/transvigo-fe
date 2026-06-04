@@ -5,6 +5,7 @@ import { errMessage } from '../api/client';
 import { shortDate, formatINR } from '../lib/utils.js';
 import type { CreateTollLogBody, TollLog } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -21,12 +22,37 @@ interface FormState {
 const EMPTY_FORM: FormState = { totalTollAmount: '', numberOfTollCrosses: '1' };
 
 export default function TollLogsPage() {
-  const { tollLogs, loading, error, refetch, createTollLog } = useTollLogs();
+  const { allTollLogs, loading, error, refetch, createTollLog } = useTollLogs();
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('');
+
+  // Vehicle filter options derived from the loaded toll logs.
+  const vehicleOptions = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    (allTollLogs as TollLog[]).forEach((t) => {
+      if (t.vehicle?.id && t.vehicle.vehicleNumber) seen.set(t.vehicle.id, t.vehicle.vehicleNumber);
+    });
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  }, [allTollLogs]);
+
+  const rows = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (allTollLogs as TollLog[]).filter((t) => {
+      const matchesQ =
+        !q ||
+        (t.vehicle?.vehicleNumber ?? '').toLowerCase().includes(q) ||
+        (t.trip?.tripNumber ?? '').toLowerCase().includes(q) ||
+        formatINR(t.totalTollAmount).toLowerCase().includes(q) ||
+        String(t.numberOfTollCrosses ?? '').includes(q);
+      const matchesVehicle = !vehicleFilter || t.vehicle?.id === vehicleFilter;
+      return matchesQ && matchesVehicle;
+    });
+  }, [allTollLogs, search, vehicleFilter]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -117,9 +143,23 @@ export default function TollLogsPage() {
         }
       />
 
+      <div className="flex gap-3 flex-wrap items-center">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search toll logs…" />
+        {vehicleOptions.length > 0 && (
+          <select
+            className="tv-input"
+            value={vehicleFilter}
+            onChange={(e) => setVehicleFilter(e.target.value)}
+          >
+            <option value="">All Vehicles</option>
+            {vehicleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
-        data={tollLogs}
+        data={rows}
         loading={loading}
         emptyLabel="No toll logs found"
         pageSize={10}

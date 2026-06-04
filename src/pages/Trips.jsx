@@ -13,6 +13,7 @@ import {
   Popover, useToast,
 } from '../components/ui.jsx';
 import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../components/states.tsx';
+import { SearchInput } from '../components/SearchInput';
 import { cx, formatINR, relTime, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
@@ -808,6 +809,7 @@ export default function Trips() {
   const {
     trips, meta, filterOptions, statusCounts, loading, error, filters, setFilters, refetch,
   } = useTripsPage();
+  const [search, setSearch] = useState('');
 
   const allDrivers = filterOptions?.drivers ?? [];
   const allVehicles = filterOptions?.vehicles ?? [];
@@ -998,6 +1000,12 @@ export default function Trips() {
         breadcrumbs={['Operations', 'Trips']}
         actions={
           <>
+            <SearchInput
+              value={search}
+              onChange={(v) => { setSearch(v); setFilters({ ...filters, search: v || undefined, page: 1 }); }}
+              placeholder="Search trips…"
+              width={220}
+            />
             <Popover
               width={300}
               trigger={

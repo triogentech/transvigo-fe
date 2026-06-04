@@ -8,6 +8,7 @@ import {
   Card, StatCard, StatusBadge, TVAvatar, DataTable, PageHeader, Modal, AnimatedNumber, TVSelect,
 } from '../components/ui.jsx';
 import { SkeletonGrid, SkeletonTable, ErrorBanner, LoadingButton } from '../components/states';
+import { SearchInput } from '../components/SearchInput';
 import { cx } from '../lib/utils.js';
 import { formatINR, shortDate } from '../lib/utils.js';
 import { useDriversPage } from '../hooks/pages/useDriversPage';
@@ -451,9 +452,10 @@ function DriverDetailModal({ driverId, driverName, driverStatus, open, onOpenCha
 
 // ── Main Page ──
 export default function Drivers() {
-  const { drivers, summary, loading, error, refetch } = useDriversPage();
+  const { drivers, summary, loading, error, refetch, setFilters } = useDriversPage();
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const total     = summary.total     ?? 0;
   const available = summary.available ?? 0;
@@ -475,6 +477,15 @@ export default function Drivers() {
 
       {/* Error banner */}
       {error && <ErrorBanner message={error} onRetry={refetch} />}
+
+      {/* Search (server-side: name / contact number) */}
+      <div style={{ marginBottom: 16 }}>
+        <SearchInput
+          value={search}
+          onChange={(v) => { setSearch(v); setFilters({ search: v || undefined, page: 1 }); }}
+          placeholder="Search drivers…"
+        />
+      </div>
 
       {/* 2. Stats row */}
       <div className="grid grid-cols-4 gap-4" style={{ marginTop: 20, marginBottom: 24 }}>
