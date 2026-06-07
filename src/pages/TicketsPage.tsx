@@ -265,6 +265,87 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+// ── Kanban board ──
+const BOARD_LANES: TicketStatus[] = ['open', 'acknowledged', 'in_progress', 'resolved', 'closed'];
+
+function TicketCard({ t, onOpen, onAdvance, busy }: {
+  t: Ticket; onOpen: (id: string) => void; onAdvance: (id: string, s: TicketStatus) => void; busy: boolean;
+}) {
+  const breached =
+    t.status !== 'resolved' && t.status !== 'closed' &&
+    slaStatus(t.openedAt, t.priority, t.resolvedAt) === 'breached';
+  const next = NEXT[t.status];
+  return (
+    <div
+      className="tv-card"
+      onClick={() => onOpen(t.id)}
+      style={{ padding: 10, cursor: 'pointer', position: 'relative', borderLeft: `3px solid ${PRIORITY_META[t.priority].color}` }}
+    >
+      {breached && (
+        <span
+          title="SLA breached"
+          className="animate-pulse"
+          style={{ position: 'absolute', top: 8, right: 8, width: 9, height: 9, borderRadius: 5, background: 'var(--danger)', boxShadow: '0 0 0 3px rgba(220,38,38,0.18)' }}
+        />
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+        <span className="font-mono" style={{ fontSize: 12, color: 'var(--teal)' }}>{t.ticketNumber}</span>
+        <PriorityPill p={t.priority} />
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4, fontWeight: 500 }}>
+        {t.title.length > 50 ? `${t.title.slice(0, 50)}…` : t.title}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+        {t.vehicle?.vehicleNumber ?? '—'} ·{' '}
+        <span style={{ color: slaColor(slaStatus(t.openedAt, t.priority, t.resolvedAt)) }}>
+          {formatSla(t.openedAt, t.priority, t.resolvedAt)}
+        </span>
+      </div>
+      {next.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+          {next.map((n) => (
+            <button
+              key={n.status}
+              className="btn-ghost"
+              style={{ fontSize: 11, padding: '2px 8px' }}
+              disabled={busy}
+              onClick={() => onAdvance(t.id, n.status)}
+            >
+              {n.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TicketBoard({ tickets, onOpen, onAdvance, busyId }: {
+  tickets: Ticket[]; onOpen: (id: string) => void; onAdvance: (id: string, s: TicketStatus) => void; busyId: string | null;
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+      {BOARD_LANES.map((lane) => {
+        const items = tickets.filter((t) => t.status === lane);
+        const m = STATUS_META[lane];
+        return (
+          <div key={lane} style={{ minWidth: 264, flex: '1 0 264px', background: 'var(--bg-sunken)', borderRadius: 12, padding: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: m.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{titleCase(lane)}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{items.length}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.length === 0
+                ? <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '8px 4px' }}>—</div>
+                : items.map((t) => <TicketCard key={t.id} t={t} onOpen={onOpen} onAdvance={onAdvance} busy={busyId === t.id} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Page ──
 export default function TicketsPage() {
   const toast = useToast();
@@ -272,6 +353,8 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TicketStatus | 'all'>('all');
+  const [view, setView] = useState<'board' | 'grid'>('board');
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
 
@@ -282,6 +365,16 @@ export default function TicketsPage() {
     finally { setLoading(false); }
   };
   useEffect(() => { void refetch(); }, []);
+
+  const advance = async (id: string, status: TicketStatus) => {
+    setBusyId(id);
+    try {
+      await ticketsApi.changeTicketStatus(id, status);
+      toast.success(`Ticket ${titleCase(status)}`);
+      await refetch();
+    } catch (e) { toast.error(errMessage(e)); }
+    finally { setBusyId(null); }
+  };
 
   const summary = useMemo(() => {
     const openCount = all.filter((t) => t.status === 'open').length;
@@ -329,25 +422,41 @@ export default function TicketsPage() {
         <StatCard title="Resolved On-Time" accent="var(--success)"><span className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{summary.onTimePct}%</span></StatCard>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {FILTERS.map((f) => {
-          const active = tab === f.value;
-          return (
-            <button key={f.value} onClick={() => setTab(f.value)}
+      <div className="flex gap-2 flex-wrap items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {view === 'grid' && FILTERS.map((f) => {
+            const active = tab === f.value;
+            return (
+              <button key={f.value} onClick={() => setTab(f.value)}
+                style={{
+                  padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  border: '1px solid ' + (active ? 'var(--accent-navy)' : 'var(--border)'),
+                  background: active ? 'var(--accent-navy)' : 'var(--bg-sunken)',
+                  color: active ? '#fff' : 'var(--text-muted)',
+                }}>
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {(['board', 'grid'] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)}
               style={{
-                padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: '1px solid ' + (active ? 'var(--accent-navy)' : 'var(--border)'),
-                background: active ? 'var(--accent-navy)' : 'var(--bg-sunken)',
-                color: active ? '#fff' : 'var(--text-muted)',
+                padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                background: view === v ? 'var(--accent-navy)' : 'transparent',
+                color: view === v ? '#fff' : 'var(--text-muted)',
               }}>
-              {f.label}
+              {v === 'board' ? 'Board' : 'Grid'}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
       {loading ? (
         <SkeletonTable rows={8} cols={7} />
+      ) : view === 'board' ? (
+        <TicketBoard tickets={all} onOpen={setSelectedId} onAdvance={advance} busyId={busyId} />
       ) : (
         <DataTable columns={columns} data={filtered} onRowClick={(r: Ticket) => setSelectedId(r.id)} emptyLabel="No tickets found" pageSize={12} />
       )}
