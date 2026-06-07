@@ -6,7 +6,7 @@ import * as Separator from '@radix-ui/react-separator';
 import {
   AlertTriangle, ArrowRight, Bell, Building2, CheckCircle2, CircleDot, ClipboardList, CreditCard, FileSearch,
   Fuel, Info, Landmark, LayoutDashboard, LogOut, MapPin, Moon, Package,
-  PackageSearch, Route as RouteIcon, Search, ShieldCheck, Sun, Truck,
+  PackageSearch, ReceiptText, Route as RouteIcon, Search, ShieldCheck, Sun, Truck,
   UserCog, Users, Warehouse, Wrench, Zap,
 } from 'lucide-react';
 import { TVAvatar, Popover } from './ui.jsx';
@@ -43,6 +43,7 @@ const NAV = [
   { group: 'FINANCE', items: [
     { label: 'Transactions', icon: CreditCard, to: '/transactions', permission: 'transactions' },
     { label: 'Toll Logs',    icon: Landmark,   to: '/toll-logs',    permission: 'toll-logs' },
+    { label: 'Invoices',     icon: ReceiptText, to: '/invoices',    permission: 'invoices' },
   ]},
   { group: 'MASTER DATA', items: [
     { label: 'Cities',          icon: Building2,   to: '/cities',          permission: 'cities' },

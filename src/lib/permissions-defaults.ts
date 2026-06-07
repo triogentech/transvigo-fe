@@ -22,13 +22,14 @@ const ALL_MODULES: ModuleSlug[] = [
   'toll-logs', 'activity-logs', 'cities', 'users',
   // Operations & Maintenance System
   'tickets', 'job-cards', 'spare-parts', 'spare-vendors', 'spare-inventory',
-  'service-schedules', 'tyre-management',
+  'service-schedules', 'tyre-management', 'invoices',
 ];
 
 // Shared maintenance block — Staff and Operations both get full O&M access.
 const MAINTENANCE: Partial<Record<ModuleSlug, Bits>> = {
   tickets: CRU, 'job-cards': CRU, 'spare-parts': FULL, 'spare-vendors': CRU,
   'spare-inventory': CRU, 'service-schedules': CRU, 'tyre-management': CRU,
+  invoices: FULL,
 };
 
 function build(partial: Partial<Record<ModuleSlug, Bits>>): Record<ModuleSlug, Bits> {

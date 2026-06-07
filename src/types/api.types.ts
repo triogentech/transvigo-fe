@@ -62,7 +62,7 @@ export type ModuleSlug =
   | 'cities' | 'users'
   // Operations & Maintenance System
   | 'tickets' | 'job-cards' | 'spare-parts' | 'spare-vendors'
-  | 'spare-inventory' | 'service-schedules' | 'tyre-management';
+  | 'spare-inventory' | 'service-schedules' | 'tyre-management' | 'invoices';
 export type PermissionAction = 'canCreate' | 'canRead' | 'canUpdate' | 'canDelete';
 
 export interface OrgUser {
@@ -479,5 +479,38 @@ export interface CreateTyreMovementBody {
   vehicleId?: string | null;
   position?: string | null;
   odometerAtEvent?: number;
+  notes?: string | null;
+}
+
+// ── Supplier Invoice Reconciliation ───────────────────────────────────
+export type InvoiceStatus = 'pending' | 'paid' | 'outstanding';
+export interface SupplierInvoice {
+  id: string;
+  refNumber: string;
+  invoiceNumber: string;
+  vendorId?: string | null;
+  vendor?: { id: string; vendorName: string } | null;
+  vehicleId?: string | null;
+  vehicle?: { id: string; vehicleNumber: string } | null;
+  jobCardId?: string | null;
+  ticketId?: string | null;
+  estimatedAmount: string | number;
+  billedAmount: string | number;
+  variancePct: string | number;
+  isFlagged: boolean;
+  status: InvoiceStatus;
+  paidAmount: string | number;
+  invoiceDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
+export interface CreateInvoiceBody {
+  invoiceNumber: string;
+  vehicleId?: string | null;
+  jobCardId?: string | null;
+  ticketId?: string | null;
+  estimatedAmount?: number;
+  billedAmount?: number;
+  invoiceDate?: string | null;
   notes?: string | null;
 }
