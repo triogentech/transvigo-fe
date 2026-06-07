@@ -938,7 +938,20 @@ export default function Trips() {
     {
       key: 'currentStatus',
       header: 'Status',
-      render: (row) => <StatusBadge status={row.currentStatus} />,
+      render: (row) => {
+        const late = row.currentStatus === 'in_transit' && row.estimatedEndTime && new Date(row.estimatedEndTime) < new Date();
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <StatusBadge status={row.currentStatus} />
+            {late && (
+              <span className="animate-pulse" title={`Overdue — ETA ${shortDate(row.estimatedEndTime)}`}
+                style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--danger)', borderRadius: 999, padding: '1px 7px', letterSpacing: '0.04em' }}>
+                LATE
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'freightTotalAmount',
