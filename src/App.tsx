@@ -43,6 +43,7 @@ import JobCardsPage from './pages/JobCardsPage';
 import SparePartsPage from './pages/SparePartsPage';
 import TyreHubPage from './pages/TyreHubPage';
 import InvoicesPage from './pages/InvoicesPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import MaintenancePage from './pages/MaintenancePage';
 import CitiesPage from './pages/CitiesPage';
 import LoadProvidersPage from './pages/LoadProvidersPage';
@@ -70,6 +71,7 @@ export default function App() {
                 <Route path="spare-parts" element={<RequirePermission module="spare-parts" action="canRead"><SparePartsPage /></RequirePermission>} />
                 <Route path="tyres" element={<RequirePermission module="tyre-management" action="canRead"><TyreHubPage /></RequirePermission>} />
                 <Route path="invoices" element={<RequirePermission module="invoices" action="canRead"><InvoicesPage /></RequirePermission>} />
+                <Route path="analytics" element={<RequirePermission module="vehicles" action="canRead"><AnalyticsPage /></RequirePermission>} />
                 <Route path="vehicles" element={<RequirePermission module="vehicles" action="canRead"><Vehicles /></RequirePermission>} />
                 <Route path="drivers" element={<RequirePermission module="drivers" action="canRead"><Drivers /></RequirePermission>} />
                 <Route path="transactions" element={<RequirePermission module="transactions" action="canRead"><Transactions /></RequirePermission>} />

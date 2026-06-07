@@ -29,6 +29,14 @@ export interface DashboardPage {
 
 export const getDashboardPage = () => get<DashboardPage>('/api/pages/dashboard');
 
+export interface AnalyticsPage {
+  fleet: { fuel: number; toll: number; job: number; invoice: number; tyre: number; total: number };
+  perVehicle: Array<{ vehicleId: string; vehicleNumber: string; model: string | null; fuel: number; toll: number; job: number; invoice: number; total: number }>;
+  vehicleBrands: Array<{ brand: string; count: number; totalCost: number; avgCost: number; breakdowns: number }>;
+  tyreBrands: Array<{ brand: string; totalTyres: number; avgKmPerTyre: number; avgPurchaseCost: number; costPer1000km: number }>;
+}
+export const getAnalyticsPage = () => get<AnalyticsPage>('/api/pages/analytics');
+
 // ── Trips ──
 export type TripListItem = Trip & { _count?: { transactions: number; fuelLogs: number } };
 export interface TripsPage {
