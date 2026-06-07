@@ -39,6 +39,9 @@ import Audit from './pages/Audit.jsx';
 import FuelLogsPage from './pages/FuelLogsPage';
 import TollLogsPage from './pages/TollLogsPage';
 import TicketsPage from './pages/TicketsPage';
+import JobCardsPage from './pages/JobCardsPage';
+import SparePartsPage from './pages/SparePartsPage';
+import TyreHubPage from './pages/TyreHubPage';
 import MaintenancePage from './pages/MaintenancePage';
 import CitiesPage from './pages/CitiesPage';
 import LoadProvidersPage from './pages/LoadProvidersPage';
@@ -62,6 +65,9 @@ export default function App() {
                 <Route index element={<Dashboard />} />
                 <Route path="trips" element={<RequirePermission module="trips" action="canRead"><Trips /></RequirePermission>} />
                 <Route path="tickets" element={<RequirePermission module="tickets" action="canRead"><TicketsPage /></RequirePermission>} />
+                <Route path="job-cards" element={<RequirePermission module="job-cards" action="canRead"><JobCardsPage /></RequirePermission>} />
+                <Route path="spare-parts" element={<RequirePermission module="spare-parts" action="canRead"><SparePartsPage /></RequirePermission>} />
+                <Route path="tyres" element={<RequirePermission module="tyre-management" action="canRead"><TyreHubPage /></RequirePermission>} />
                 <Route path="vehicles" element={<RequirePermission module="vehicles" action="canRead"><Vehicles /></RequirePermission>} />
                 <Route path="drivers" element={<RequirePermission module="drivers" action="canRead"><Drivers /></RequirePermission>} />
                 <Route path="transactions" element={<RequirePermission module="transactions" action="canRead"><Transactions /></RequirePermission>} />

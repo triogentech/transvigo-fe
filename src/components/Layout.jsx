@@ -4,8 +4,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Separator from '@radix-ui/react-separator';
 import {
-  AlertTriangle, ArrowRight, Bell, Building2, CheckCircle2, CreditCard, FileSearch,
-  Fuel, Info, Landmark, LayoutDashboard, LogOut, MapPin, Moon,
+  AlertTriangle, ArrowRight, Bell, Building2, CheckCircle2, CircleDot, ClipboardList, CreditCard, FileSearch,
+  Fuel, Info, Landmark, LayoutDashboard, LogOut, MapPin, Moon, Package,
   PackageSearch, Route as RouteIcon, Search, ShieldCheck, Sun, Truck,
   UserCog, Users, Warehouse, Wrench, Zap,
 } from 'lucide-react';
@@ -28,6 +28,11 @@ const NAV = [
     { label: 'Trips',      icon: RouteIcon,        to: '/trips',       permission: 'trips' },
     { label: 'Tickets',    icon: AlertTriangle,     to: '/tickets',     permission: 'tickets' },
     { label: 'Live Map',   icon: MapPin,            to: '/map',         badge: 'Soon' },
+  ]},
+  { group: 'WORKSHOP', items: [
+    { label: 'Job Cards',   icon: ClipboardList, to: '/job-cards',   permission: 'job-cards' },
+    { label: 'Spare Parts', icon: Package,       to: '/spare-parts', permission: 'spare-parts' },
+    { label: 'Tyre Hub',    icon: CircleDot,     to: '/tyres',       permission: 'tyre-management' },
   ]},
   { group: 'FLEET', items: [
     { label: 'Vehicles',    icon: Truck,   to: '/vehicles',    permission: 'vehicles' },

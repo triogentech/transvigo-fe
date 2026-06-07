@@ -370,3 +370,114 @@ export interface VehicleFilters extends PaginationParams {
   currentStatus?: VehicleStatus; isActive?: boolean; search?: string;
 }
 export interface DriverFilters extends PaginationParams { currentStatus?: DriverStatus; search?: string }
+
+// ── Job Cards (Workshop) ──────────────────────────────────────────────
+export type JobCardStatus = 'open' | 'in_progress' | 'quality_check' | 'closed' | 'cancelled';
+
+export interface JobCard {
+  id: string;
+  jobCardNumber: string;
+  status: JobCardStatus;
+  vehicleId: string;
+  vehicle?: { id: string; vehicleNumber: string } | null;
+  driver?: { id: string; fullName: string } | null;
+  supervisor?: { id: string; username: string } | null;
+  garage?: { id: string; name: string } | null;
+  entryOdometer: number;
+  exitOdometer?: number | null;
+  driverComplaint: string;
+  diagnosis?: string | null;
+  workDone?: string | null;
+  entryTime: string;
+  closedTime?: string | null;
+  isLoadReady: boolean;
+  linkedTicketId?: string | null;
+  totalPartsCost: string | number;
+  totalLabourCost: string | number;
+  totalJobCost: string | number;
+  _count?: { spareIssueSlips: number };
+  createdAt: string;
+}
+
+export interface CreateJobCardBody {
+  vehicleId: string;
+  driverId?: string | null;
+  entryOdometer?: number;
+  driverComplaint: string;
+  linkedTicketId?: string | null;
+  garageId?: string | null;
+  supervisorId?: string | null;
+}
+
+export interface JobCardFilters extends PaginationParams {
+  status?: JobCardStatus; vehicleId?: string; garageId?: string; search?: string;
+}
+
+// ── Spare Parts (Inventory) ───────────────────────────────────────────
+export interface SparePart {
+  id: string;
+  partNumber: string;
+  partName: string;
+  category: string;
+  unitOfMeasure: string;
+  currentStockQty: string | number;
+  reorderLevel: string | number;
+  unitCost: string | number;
+  totalStockValue: string | number;
+  isActive: boolean;
+  createdAt: string;
+}
+export interface CreateSparePartBody {
+  partNumber: string;
+  partName: string;
+  category: string;
+  unitOfMeasure?: string;
+  currentStockQty?: number;
+  reorderLevel?: number;
+  unitCost?: number;
+}
+export interface StockAdjustmentBody {
+  adjustmentType: 'add' | 'remove';
+  qty: number;
+  reason: string;
+}
+
+// ── Tyre Hub (Lifecycle) ──────────────────────────────────────────────
+export type TyreStatus = 'in_stock' | 'in_use' | 'scrapped' | 'retreading';
+export type TyreType = 'new_tyre' | 'retread';
+export type TyreMovementType =
+  | 'fitted' | 'removed' | 'scrapped' | 'sent_for_retread'
+  | 'returned_from_retread' | 'returned_to_stock';
+
+export interface Tyre {
+  id: string;
+  serialNumber: string;
+  brand: string;
+  size: string;
+  tyreType: TyreType;
+  currentStatus: TyreStatus;
+  currentVehicleId?: string | null;
+  currentVehicle?: { id: string; vehicleNumber: string } | null;
+  currentPosition?: string | null;
+  totalKmRun: number;
+  expectedLifeKm: number;
+  healthPct: number;
+  purchaseCost?: string | number | null;
+  notes?: string | null;
+  createdAt: string;
+}
+export interface CreateTyreBody {
+  serialNumber: string;
+  brand: string;
+  size: string;
+  tyreType?: TyreType;
+  purchaseCost?: number | null;
+  expectedLifeKm?: number;
+}
+export interface CreateTyreMovementBody {
+  movementType: TyreMovementType;
+  vehicleId?: string | null;
+  position?: string | null;
+  odometerAtEvent?: number;
+  notes?: string | null;
+}
