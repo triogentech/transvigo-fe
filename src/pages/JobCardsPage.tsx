@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { matchesSearch } from '../lib/clientList';
 import { getSelect, type SelectOption } from '../api/select.api';
+import * as jobCardsApi from '../api/job-cards.api';
 import type { CreateJobCardBody, JobCard, JobCardStatus } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
@@ -48,11 +49,22 @@ export default function JobCardsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [garages, setGarages] = useState<SelectOption[]>([]);
+  const [assignees, setAssignees] = useState<SelectOption[]>([]);
 
   useEffect(() => {
     void getSelect('vehicles').then(setVehicles).catch(() => undefined);
     void getSelect('garages').then(setGarages).catch(() => undefined);
+    void getSelect('assignees').then(setAssignees).catch(() => undefined);
   }, []);
+
+  const onAssign = async (jc: JobCard, userId: string) => {
+    try {
+      await jobCardsApi.updateJobCard(jc.id, { supervisorId: userId || null });
+      await refetch();
+    } catch (e) {
+      toast.error(errMessage(e));
+    }
+  };
 
   const rows = useMemo(
     () =>
@@ -112,7 +124,23 @@ export default function JobCardsPage() {
     { key: 'driverComplaint', header: 'Complaint', render: (r: JobCard) => <span title={r.driverComplaint}>{r.driverComplaint.length > 40 ? `${r.driverComplaint.slice(0, 40)}…` : r.driverComplaint}</span> },
     { key: 'garage', header: 'Garage', render: (r: JobCard) => r.garage?.name ?? '—' },
     { key: 'totalJobCost', header: 'Cost', render: (r: JobCard) => inr(r.totalJobCost) },
-    { key: 'entryTime', header: 'Entered', render: (r: JobCard) => fmtDate(r.entryTime) },
+    {
+      key: 'supervisor',
+      header: 'Assigned To',
+      render: (r: JobCard) => (
+        <select
+          className="tv-input"
+          value={r.supervisor?.id ?? ''}
+          onChange={(e) => onAssign(r, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <option value="">Unassigned</option>
+          {assignees.map((a) => (
+            <option key={a.value} value={a.value}>{a.label}</option>
+          ))}
+        </select>
+      ),
+    },
     {
       key: 'actions',
       header: 'Set Status',

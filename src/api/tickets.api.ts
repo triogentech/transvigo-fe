@@ -11,3 +11,6 @@ export const createTicket = (body: CreateTicketBody) => post<Ticket>('/api/ticke
 
 export const changeTicketStatus = (id: string, status: TicketStatus, note?: string) =>
   put<{ ticket: Ticket }>(`/api/tickets/${id}/status`, { status, note });
+
+export const assignTicket = (id: string, assignedTo: string) =>
+  put<{ ticket: Ticket }>(`/api/tickets/${id}/assign`, { assignedTo });

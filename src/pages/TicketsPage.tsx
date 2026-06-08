@@ -76,6 +76,7 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [assignees, setAssignees] = useState<SelectOption[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -83,13 +84,31 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
     catch (e) { toast.error(errMessage(e)); }
     finally { setLoading(false); }
   };
-  useEffect(() => { if (open) void load(); /* eslint-disable-next-line */ }, [open, ticketId]);
+  useEffect(() => {
+    if (open) {
+      void load();
+      getSelect('assignees').then(setAssignees).catch(() => undefined);
+    }
+    /* eslint-disable-next-line */
+  }, [open, ticketId]);
 
   const changeStatus = async (status: TicketStatus) => {
     setBusy(true);
     try {
       await ticketsApi.changeTicketStatus(ticketId, status);
       toast.success(`Ticket ${titleCase(status)}`);
+      await load();
+      onChanged();
+    } catch (e) { toast.error(errMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  const assign = async (userId: string) => {
+    if (!userId) return;
+    setBusy(true);
+    try {
+      await ticketsApi.assignTicket(ticketId, userId);
+      toast.success('Ticket assigned');
       await load();
       onChanged();
     } catch (e) { toast.error(errMessage(e)); }
@@ -152,6 +171,18 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
               </a>
             </div>
           )}
+
+          {/* Assign */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Assign To</div>
+            <TVSelect
+              value={ticket.assignedToUser?.id ?? ''}
+              onValueChange={assign}
+              options={[{ value: '', label: 'Unassigned' }, ...assignees]}
+              placeholder="Assign to a team member"
+              disabled={busy}
+            />
+          </div>
 
           {/* Status actions */}
           {NEXT[ticket.status].length > 0 && (
