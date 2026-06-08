@@ -344,6 +344,12 @@ function TicketCard({ t, onOpen, onAdvance, busy }: {
           {formatSla(t.openedAt, t.priority, t.resolvedAt)}
         </span>
       </div>
+      {t.assignedToUser && (
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 5, height: 5, borderRadius: 3, background: 'var(--accent-teal)' }} />
+          {t.assignedToUser.username}
+        </div>
+      )}
       {next.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
           {next.map((n) => (
@@ -444,6 +450,12 @@ export default function TicketsPage() {
           {formatSla(r.openedAt, r.priority, r.resolvedAt)}
         </span>
       ),
+    },
+    {
+      key: 'assignedTo', header: 'Assigned',
+      render: (r: Ticket) => r.assignedToUser
+        ? <span style={{ fontSize: 12 }}>{r.assignedToUser.username}</span>
+        : <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>—</span>,
     },
     { key: 'openedAt', header: 'Opened', render: (r: Ticket) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{shortDate(r.openedAt)}</span> },
   ];
