@@ -37,6 +37,9 @@ export const inviteUser = (body: {
   username: string;
   roleId: string;
   password?: string;
+  fullName?: string;
+  contactNumber?: string;
+  countryDialCode?: string;
 }): Promise<UserCredentialResult> =>
   post<UserCredentialResult>('/api/admin/users', body);
 

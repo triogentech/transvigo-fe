@@ -31,9 +31,12 @@ interface InviteForm {
   username: string;
   roleId: string;
   password: string;
+  fullName: string;
+  countryDialCode: string;
+  contactNumber: string;
 }
 
-const EMPTY_INVITE: InviteForm = { email: '', username: '', roleId: '', password: '' };
+const EMPTY_INVITE: InviteForm = { email: '', username: '', roleId: '', password: '', fullName: '', countryDialCode: '+91', contactNumber: '' };
 
 // ── Credential panel: shows a generated temp password for the admin to share ──
 function CredentialPanel({ password }: { password: string }) {
@@ -334,6 +337,9 @@ export default function TeamPage() {
         username: form.username,
         roleId: form.roleId,
         password: form.password.trim() || undefined,
+        fullName: form.fullName.trim() || undefined,
+        contactNumber: form.contactNumber.trim() || undefined,
+        countryDialCode: form.countryDialCode.trim() || undefined,
       });
       toast.success('User created');
       // Generated temp password → keep modal open to display it; admin-set → close.
@@ -473,6 +479,37 @@ export default function TeamPage() {
                 onChange={(e) => set('username', e.target.value)}
                 placeholder="Display name"
               />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                Full Name <span style={{ color: 'var(--text-dim)' }}>(optional)</span>
+              </label>
+              <input
+                className="tv-input w-full"
+                value={form.fullName}
+                onChange={(e) => set('fullName', e.target.value)}
+                placeholder="e.g. Ravi Sharma"
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                Phone Number <span style={{ color: 'var(--text-dim)' }}>(enables phone login)</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  className="tv-input font-mono"
+                  style={{ width: 70 }}
+                  value={form.countryDialCode}
+                  onChange={(e) => set('countryDialCode', e.target.value)}
+                  placeholder="+91"
+                />
+                <input
+                  className="tv-input w-full font-mono"
+                  value={form.contactNumber}
+                  onChange={(e) => set('contactNumber', e.target.value)}
+                  placeholder="9876543210"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
