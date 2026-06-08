@@ -41,6 +41,7 @@ function build(partial: Partial<Record<ModuleSlug, Bits>>): Record<ModuleSlug, B
 export const DEFAULT_PERMISSIONS: Record<string, Record<ModuleSlug, Bits>> = {
   Admin: build(Object.fromEntries(ALL_MODULES.map((m) => [m, FULL])) as Record<ModuleSlug, Bits>),
   Staff: build({
+    trips: R,
     cities: R, 'fuel-stations': FULL, garages: FULL, 'fuel-logs': FULL,
     'garage-logs': FULL, 'tyre-logs': FULL, transactions: FULL,
     'activity-logs': R, drivers: R, vehicles: R, staff: FULL,
