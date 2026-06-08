@@ -50,8 +50,13 @@ export const DEFAULT_PERMISSIONS: Record<string, Record<ModuleSlug, Bits>> = {
   Operations: build({
     trips: FULL, vehicles: RU, drivers: R, 'load-providers': R,
     'fuel-logs': CR, 'toll-logs': FULL, cities: R,
+    'activity-logs': R, transactions: CRU,
     garages: R, 'garage-logs': FULL, 'tyre-logs': FULL,
     ...MAINTENANCE,
   }),
-  Driver: build({ trips: R, drivers: R }),
+  Driver: build({
+    trips: R, drivers: R, vehicles: R,
+    'fuel-logs': CR, 'toll-logs': CR,
+    tickets: CR, 'job-cards': R, 'service-schedules': R,
+  }),
 };
