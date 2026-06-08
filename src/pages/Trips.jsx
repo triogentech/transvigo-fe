@@ -165,6 +165,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
   const [touchingLocations, setTouchingLocations] = useState(false);
   const [locations, setLocations] = useState(['']);
   const [form, setForm] = useState({
+    tripNumber: '',
     start: '', end: '', estStart: '', estEnd: '', distance: '', duration: '',
     driverId: '', vehicleId: '', loadProviderId: '', freight: '', advance: '',
     vendorCode: '', vendorName: '',
@@ -196,7 +197,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
 
   function resetForm() {
     setStep(1);
-    setForm({ start: '', end: '', estStart: '', estEnd: '', distance: '', duration: '', driverId: '', vehicleId: '', loadProviderId: '', freight: '', advance: '', vendorCode: '', vendorName: '' });
+    setForm({ tripNumber: '', start: '', end: '', estStart: '', estEnd: '', distance: '', duration: '', driverId: '', vehicleId: '', loadProviderId: '', freight: '', advance: '', vendorCode: '', vendorName: '' });
     setTouchingLocations(false);
     setLocations(['']);
   }
@@ -205,6 +206,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
     setSubmitting(true);
     try {
       const body = {
+        tripNumber: form.tripNumber.trim() || undefined,
         startPoint: form.start,
         endPoint: form.end,
         estimatedStartTime: form.estStart ? new Date(form.estStart).toISOString() : new Date().toISOString(),
@@ -307,6 +309,10 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
       {/* Step 1: Route & Schedule */}
       {step === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Trip ID <span style={{ color: 'var(--text-dim)' }}>(optional — blank to auto-generate)</span></label>
+            <input style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }} placeholder="e.g. TRV-20260601-0001" value={form.tripNumber} onChange={(e) => setF('tripNumber', e.target.value)} />
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Start Point <span style={{ color: 'var(--danger)' }}>*</span></label>
