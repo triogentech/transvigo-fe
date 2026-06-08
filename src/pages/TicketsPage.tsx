@@ -140,6 +140,18 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
               <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>{ticket.resolution}</div>
             </div>
           )}
+          {ticket.photoUrl && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Photo</div>
+              <a href={ticket.photoUrl} target="_blank" rel="noreferrer">
+                <img
+                  src={ticket.photoUrl}
+                  alt="Ticket attachment"
+                  style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }}
+                />
+              </a>
+            </div>
+          )}
 
           {/* Status actions */}
           {NEXT[ticket.status].length > 0 && (

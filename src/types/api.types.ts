@@ -307,6 +307,7 @@ export interface Ticket {
   isResolvedOnTime?: boolean | null;
   assignedTo?: string | null;
   resolution?: string | null;
+  photoUrl?: string | null;
   linkedJobCardId?: string | null;
   createdAt: string;
   vehicle?: { id: string; vehicleNumber: string } | null;
