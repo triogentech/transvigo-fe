@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as invoicesApi from '../api/invoices.api';
 import { errMessage } from '../api/client';
-import type { CreateInvoiceBody, InvoiceStatus, SupplierInvoice } from '../types/api.types';
+import type { CreateInvoiceBody, InvoicePaymentStatus, SupplierInvoice } from '../types/api.types';
 
 export function useInvoices() {
   const [all, setAll] = useState<SupplierInvoice[]>([]);
@@ -31,11 +31,11 @@ export function useInvoices() {
     return inv;
   };
 
-  const recordPayment = async (id: string, status: InvoiceStatus, paidAmount?: number) => {
-    const inv = await invoicesApi.recordPayment(id, status, paidAmount);
+  const setPaymentStatus = async (id: string, paymentStatus: InvoicePaymentStatus) => {
+    const inv = await invoicesApi.setPaymentStatus(id, paymentStatus);
     await refetch();
     return inv;
   };
 
-  return { allInvoices: all, loading, error, refetch, createInvoice, recordPayment };
+  return { allInvoices: all, loading, error, refetch, createInvoice, setPaymentStatus };
 }

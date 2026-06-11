@@ -2,7 +2,7 @@ import { getPage, get, post, put } from './client';
 import type {
   SupplierInvoice,
   CreateInvoiceBody,
-  InvoiceStatus,
+  InvoicePaymentStatus,
   PaginatedResponse,
 } from '../types/api.types';
 
@@ -19,5 +19,5 @@ export const createInvoice = (body: CreateInvoiceBody) =>
 export const updateInvoice = (id: string, body: Partial<CreateInvoiceBody>) =>
   put<SupplierInvoice>(`/api/invoices/${id}`, body);
 
-export const recordPayment = (id: string, status: InvoiceStatus, paidAmount?: number) =>
-  put<SupplierInvoice>(`/api/invoices/${id}/payment`, { status, paidAmount });
+export const setPaymentStatus = (id: string, paymentStatus: InvoicePaymentStatus) =>
+  put<SupplierInvoice>(`/api/invoices/${id}/payment`, { paymentStatus });
