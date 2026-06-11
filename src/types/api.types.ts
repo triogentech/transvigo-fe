@@ -497,6 +497,7 @@ export interface SupplierInvoice {
   jobCard?: { id: string; jobCardNumber: string } | null;
   totalAmount: string | number;
   paymentStatus: InvoicePaymentStatus;
+  photoUrl?: string | null;
   invoiceDate?: string | null;
   notes?: string | null;
   createdAt: string;

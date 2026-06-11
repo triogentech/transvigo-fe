@@ -112,6 +112,12 @@ export default function InvoicesPage() {
     { key: 'vehicle', header: 'Vehicle', render: (r: SupplierInvoice) => r.vehicle?.vehicleNumber ?? '—' },
     { key: 'jobCard', header: 'Job Card', render: (r: SupplierInvoice) => r.jobCard?.jobCardNumber ?? '—' },
     { key: 'totalAmount', header: 'Total', render: (r: SupplierInvoice) => inr(r.totalAmount) },
+    {
+      key: 'photo', header: 'Photo',
+      render: (r: SupplierInvoice) => (r.photoUrl
+        ? <a href={r.photoUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}><img src={r.photoUrl} alt="invoice" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 4 }} /></a>
+        : <span style={{ color: 'var(--text-muted)' }}>—</span>),
+    },
     { key: 'paymentStatus', header: 'Status', render: (r: SupplierInvoice) => <Pill color={STATUS_META[r.paymentStatus].color}>{STATUS_META[r.paymentStatus].label}</Pill> },
     {
       key: 'actions', header: 'Set',
