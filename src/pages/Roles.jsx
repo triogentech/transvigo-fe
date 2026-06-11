@@ -12,6 +12,7 @@ import {
   Fuel,
   Landmark,
   PackageSearch,
+  Receipt,
   Route,
   Truck,
   User,
@@ -53,6 +54,7 @@ const MODULE_ICON = {
   'spare-parts': PackageSearch,
   'spare-vendors': Warehouse,
   'spare-inventory': FileText,
+  invoices: Receipt,
 };
 
 // ── Module display name ──
@@ -67,7 +69,7 @@ function moduleName(slug) {
     'fuel-stations': 'Fuel Stations',
     'fuel-logs': 'Fuel Logs',
     garages: 'Garages',
-    'garage-logs': 'Garage Logs',
+    'garage-logs': 'Maintenance / Work Orders',
     'tyre-logs': 'Tyre Logs',
     cities: 'Cities',
     'load-providers': 'Load Providers',
@@ -80,6 +82,7 @@ function moduleName(slug) {
     'spare-parts': 'Spare Parts',
     'spare-vendors': 'Spare Vendors',
     'spare-inventory': 'Spare Issue Slips',
+    invoices: 'Supplier Invoices',
   };
   return map[slug] || slug;
 }
@@ -103,7 +106,7 @@ const ACTIONS = [
 // All module groups — kept as a constant so no mock import needed
 const MODULE_GROUPS = [
   { group: 'OPERATIONS',   modules: ['trips', 'tickets', 'vehicles', 'drivers', 'staff'] },
-  { group: 'FINANCE',      modules: ['transactions', 'toll-logs'] },
+  { group: 'FINANCE',      modules: ['transactions', 'toll-logs', 'invoices'] },
   { group: 'FLEET OPS',    modules: ['fuel-stations', 'fuel-logs', 'garages', 'garage-logs', 'tyre-logs', 'tyre-management'] },
   { group: 'WORKSHOP',     modules: ['job-cards', 'service-schedules', 'spare-parts', 'spare-vendors', 'spare-inventory'] },
   { group: 'MASTER DATA',  modules: ['cities', 'load-providers', 'users'] },
@@ -159,10 +162,28 @@ export default function Roles() {
 
   const isAdmin = selectedRole?.name === 'Admin';
 
+  // ── Drift guard: surface any backend module that exists on a role but isn't in
+  // MODULE_GROUPS, so a forgotten module is never hidden (or silently wiped on save). ──
+  const extraModules = useMemo(() => {
+    const known = new Set(ALL_MODULES);
+    const found = new Set();
+    for (const r of roles ?? []) {
+      for (const p of r.permissions ?? []) {
+        if (p?.module && !known.has(p.module)) found.add(p.module);
+      }
+    }
+    return [...found].sort();
+  }, [roles]);
+  const displayGroups = useMemo(
+    () => (extraModules.length ? [...MODULE_GROUPS, { group: 'OTHER', modules: extraModules }] : MODULE_GROUPS),
+    [extraModules],
+  );
+  const effectiveModules = useMemo(() => [...ALL_MODULES, ...extraModules], [extraModules]);
+
   // ── Dirty check ──
   const dirty = useMemo(() => {
     if (isAdmin) return false;
-    for (const mod of ALL_MODULES) {
+    for (const mod of effectiveModules) {
       const local = localPerms[mod] || FALSE_PERMS;
       const loaded = loadedRef.current[mod] || FALSE_PERMS;
       for (const a of ['canCreate', 'canRead', 'canUpdate', 'canDelete']) {
@@ -170,7 +191,7 @@ export default function Roles() {
       }
     }
     return false;
-  }, [localPerms, isAdmin]);
+  }, [localPerms, isAdmin, effectiveModules]);
 
   function toggle(mod, actionKey) {
     setLocalPerms((prev) => ({
@@ -188,7 +209,7 @@ export default function Roles() {
     if (!selectedRole) return;
     setSaving(true);
     try {
-      const payload = ALL_MODULES.map((mod) => {
+      const payload = effectiveModules.map((mod) => {
         const p = localPerms[mod] || FALSE_PERMS;
         return {
           module: mod,
@@ -349,7 +370,7 @@ export default function Roles() {
 
             {/* Module permission matrix */}
             <div className="px-4 pb-4">
-                {MODULE_GROUPS.map((grp) => (
+                {displayGroups.map((grp) => (
                   <div key={grp.group}>
                     {/* Group label */}
                     <div
