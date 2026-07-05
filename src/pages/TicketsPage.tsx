@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { LayoutGrid, Columns3 } from 'lucide-react';
 import * as ticketsApi from '../api/tickets.api';
+import { usePersistentState } from '../hooks/usePersistentState';
 import { getSelect, type SelectOption } from '../api/select.api';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
@@ -9,6 +11,7 @@ import type {
   CreateTicketBody, Ticket, TicketHistoryEntry, TicketIssueType, TicketPriority, TicketStatus,
 } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -19,6 +22,12 @@ const Modal: React.FC<any> = UI.Modal;
 const Pill: React.FC<any> = UI.Pill;
 const TVSelect: React.FC<any> = UI.TVSelect;
 const StatCard: React.FC<any> = UI.StatCard;
+const SegmentTabs: React.FC<any> = UI.SegmentTabs;
+
+const VIEWS: { v: 'board' | 'grid'; label: string; Icon: React.FC<{ size?: number }> }[] = [
+  { v: 'board', label: 'Board', Icon: Columns3 },
+  { v: 'grid', label: 'Grid', Icon: LayoutGrid },
+];
 
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
@@ -237,14 +246,12 @@ const EMPTY: { vehicleId: string; issueType: TicketIssueType; priority: TicketPr
 function RaiseTicketModal({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: () => void }) {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
-  const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const set = <K extends keyof typeof EMPTY>(k: K, v: (typeof EMPTY)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
     if (!open) return;
     setForm(EMPTY);
-    getSelect('vehicles').then(setVehicles).catch(() => undefined);
   }, [open]);
 
   const submit = async () => {
@@ -272,8 +279,15 @@ function RaiseTicketModal({ open, onOpenChange, onCreated }: { open: boolean; on
       footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit}>Submit</LoadingButton>}>
       <div className="flex flex-col gap-3">
         <Labeled label="Vehicle">
-          <TVSelect value={form.vehicleId} onValueChange={(v: string) => set('vehicleId', v)}
-            options={[{ value: '', label: 'Unassigned' }, ...vehicles]} placeholder="Select vehicle" />
+          <AsyncSelect
+            entity="vehicles"
+            value={form.vehicleId}
+            onChange={(v) => set('vehicleId', v)}
+            placeholder="Select vehicle"
+            clearable
+            clearLabel="Unassigned"
+            emptyLabel="No vehicles found"
+          />
         </Labeled>
         <div className="grid grid-cols-2 gap-3">
           <Labeled label="Issue Type">
@@ -401,8 +415,8 @@ export default function TicketsPage() {
   const [all, setAll] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<TicketStatus | 'all'>('all');
-  const [view, setView] = useState<'board' | 'grid'>('board');
+  const [tab, setTab] = usePersistentState<TicketStatus | 'all'>('tickets:filter', 'all');
+  const [view, setView] = usePersistentState<'board' | 'grid'>('tickets:view', 'board');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
@@ -436,6 +450,15 @@ export default function TicketsPage() {
   }, [all]);
 
   const filtered = tab === 'all' ? all : all.filter((t) => t.status === tab);
+
+  const filterTabs = useMemo(
+    () => FILTERS.map((f) => ({
+      value: f.value,
+      label: f.label,
+      count: f.value === 'all' ? all.length : all.filter((t) => t.status === f.value).length,
+    })),
+    [all],
+  );
 
   const columns = [
     { key: 'ticketNumber', header: 'Ticket #', render: (r: Ticket) => <span className="font-mono" style={{ color: 'var(--teal)' }}>{r.ticketNumber}</span> },
@@ -477,34 +500,38 @@ export default function TicketsPage() {
         <StatCard title="Resolved On-Time" accent="var(--success)"><span className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{summary.onTimePct}%</span></StatCard>
       </div>
 
-      <div className="flex gap-2 flex-wrap items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          {view === 'grid' && FILTERS.map((f) => {
-            const active = tab === f.value;
+      <div className="flex gap-3 flex-wrap items-center justify-between">
+        <div className="min-w-0">
+          {view === 'grid'
+            ? <SegmentTabs value={tab} onValueChange={(v: string) => setTab(v as TicketStatus | 'all')} tabs={filterTabs} />
+            : <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Grouped by status</span>}
+        </div>
+        <div
+          role="group"
+          aria-label="View mode"
+          style={{ display: 'inline-flex', gap: 2, padding: 2, borderRadius: 9, background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}
+        >
+          {VIEWS.map(({ v, label, Icon }) => {
+            const active = view === v;
             return (
-              <button key={f.value} onClick={() => setTab(f.value)}
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={active}
+                className="inline-flex items-center gap-1.5"
                 style={{
-                  padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: '1px solid ' + (active ? 'var(--accent-navy)' : 'var(--border)'),
-                  background: active ? 'var(--accent-navy)' : 'var(--bg-sunken)',
-                  color: active ? '#fff' : 'var(--text-muted)',
-                }}>
-                {f.label}
+                  padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 7, border: 'none',
+                  background: active ? 'var(--bg-surface)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                  boxShadow: active ? '0 1px 2px rgba(0,0,0,0.10)' : 'none',
+                  transition: 'background 120ms ease, color 120ms ease',
+                }}
+              >
+                <Icon size={14} /> {label}
               </button>
             );
           })}
-        </div>
-        <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {(['board', 'grid'] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)}
-              style={{
-                padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
-                background: view === v ? 'var(--accent-navy)' : 'transparent',
-                color: view === v ? '#fff' : 'var(--text-muted)',
-              }}>
-              {v === 'board' ? 'Board' : 'Grid'}
-            </button>
-          ))}
         </div>
       </div>
 

@@ -34,3 +34,28 @@ export function clearSelectCache(entity?: SelectEntity): void {
   if (!entity) { cache.clear(); return; }
   for (const k of cache.keys()) if (k.startsWith(`${entity}:`)) cache.delete(k);
 }
+
+export interface SelectPage {
+  data: SelectOption[];
+  hasMore: boolean;
+}
+
+/**
+ * Paginated dropdown fetch for search-as-you-type + infinite-scroll comboboxes.
+ * Unlike `getSelect`, this is NOT cached client-side: results vary by search
+ * term and page, and the server already sends `Cache-Control: private, max-age=300`.
+ */
+export async function getSelectPage(
+  entity: SelectEntity,
+  params: { search?: string; page: number; pageSize: number; status?: string },
+): Promise<SelectPage> {
+  const res = await get<SelectPage | SelectOption[]>(`/api/select/${entity}`, {
+    ...params,
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+  });
+  // Tolerate the legacy bare-array response (older backend that ignores `page`):
+  // normalise to the paginated envelope so callers never see `undefined`.
+  if (Array.isArray(res)) return { data: res, hasMore: false };
+  return { data: res?.data ?? [], hasMore: res?.hasMore ?? false };
+}
