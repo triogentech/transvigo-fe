@@ -173,6 +173,25 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
 
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Format a Date into the local "YYYY-MM-DDTHH:mm" string a datetime-local input expects.
+  const toDatetimeLocal = (date) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  // Derive Est. End from an Est. Start + a duration (minutes). Returns '' if it can't be computed.
+  const deriveEstEnd = (estStart, duration) => {
+    const mins = Number(duration);
+    if (!estStart || !mins || mins <= 0) return '';
+    const start = new Date(estStart);
+    if (Number.isNaN(start.getTime())) return '';
+    return toDatetimeLocal(new Date(start.getTime() + mins * 60000));
+  };
+
+  // Est. End is read-only and always reflects Est. Start + Duration (cleared when either is missing).
+  const setEstStart = (v) => setForm((f) => ({ ...f, estStart: v, estEnd: deriveEstEnd(v, f.duration) }));
+  const setDuration = (v) => setForm((f) => ({ ...f, duration: v, estEnd: deriveEstEnd(f.estStart, v) }));
+
   const addLocation = () => setLocations((l) => [...l, '']);
   const removeLocation = (i) => setLocations((l) => l.filter((_, idx) => idx !== i));
   const updateLocation = (i, v) => setLocations((l) => l.map((x, idx) => idx === i ? v : x));
@@ -327,11 +346,18 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Est. Start</label>
-              <input type="datetime-local" style={inputStyle} value={form.estStart} onChange={(e) => setF('estStart', e.target.value)} />
+              <input type="datetime-local" style={inputStyle} value={form.estStart} onChange={(e) => setEstStart(e.target.value)} />
             </div>
             <div>
-              <label style={labelStyle}>Est. End</label>
-              <input type="datetime-local" style={inputStyle} value={form.estEnd} onChange={(e) => setF('estEnd', e.target.value)} />
+              <label style={labelStyle}>Est. End <span style={{ color: 'var(--text-dim)' }}>(auto from duration)</span></label>
+              <input
+                type="datetime-local"
+                style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
+                value={form.estEnd}
+                readOnly
+                disabled
+                title="Calculated automatically from Est. Start + Duration"
+              />
             </div>
           </div>
 
@@ -342,7 +368,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
             </div>
             <div>
               <label style={labelStyle}>Duration (min)</label>
-              <input type="number" style={inputStyle} placeholder="e.g. 210" value={form.duration} onChange={(e) => setF('duration', e.target.value)} />
+              <input type="number" style={inputStyle} placeholder="e.g. 210" value={form.duration} onChange={(e) => setDuration(e.target.value)} />
             </div>
           </div>
 
