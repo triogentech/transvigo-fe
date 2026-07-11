@@ -24,14 +24,17 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', isActive: true };
 
 export default function GaragesPage() {
-  const { allGarages, loading, error, refetch, createGarage } = useGarages();
+  const { allGarages, loading, error, refetch, createGarage, updateGarage, deleteGarage } = useGarages();
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [delRow, setDelRow] = useState<Garage | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
 
   const rows = React.useMemo(
     () =>
@@ -47,21 +50,48 @@ export default function GaragesPage() {
     setForm((f) => ({ ...f, [k]: v }));
 
   const openModal = () => {
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setOpen(true);
   };
 
+  const openEdit = (g: Garage) => {
+    setEditingId(g.id);
+    setForm({ name: g.name, isActive: g.isActive ?? true });
+    setOpen(true);
+  };
+
   const submit = async () => {
+    if (!form.name.trim()) return toast.error('Enter a name');
     setSubmitting(true);
     try {
       const body: CreateGarageBody = { name: form.name, isActive: form.isActive };
-      await createGarage(body);
-      toast.success('Garage created');
+      if (editingId) {
+        await updateGarage(editingId, body);
+        toast.success('Garage updated');
+      } else {
+        await createGarage(body);
+        toast.success('Garage created');
+      }
       setOpen(false);
     } catch (e) {
       toast.error(errMessage(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!delRow) return;
+    setDelBusy(true);
+    try {
+      await deleteGarage(delRow.id);
+      toast.success('Garage deleted');
+      setDelRow(null);
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setDelBusy(false);
     }
   };
 
@@ -78,6 +108,16 @@ export default function GaragesPage() {
             Inactive
           </Pill>
         ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: Garage) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button className="btn-ghost" onClick={() => openEdit(row)}>Edit</button>
+          <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(row)}>Delete</button>
+        </div>
+      ),
     },
   ];
 
@@ -119,7 +159,7 @@ export default function GaragesPage() {
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Add Garage"
+        title={editingId ? 'Edit Garage' : 'Add Garage'}
         footer={
           <LoadingButton
             className="btn-brand"
@@ -149,6 +189,22 @@ export default function GaragesPage() {
               onCheckedChange={(v: boolean) => set('isActive', v)}
             />
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!delRow}
+        onOpenChange={(v: boolean) => { if (!v) setDelRow(null); }}
+        title="Delete Garage"
+        footer={
+          <LoadingButton className="btn-brand" loading={delBusy} onClick={confirmDelete}
+            style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+            Delete
+          </LoadingButton>
+        }
+      >
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Delete <b>{delRow?.name}</b>? This can’t be undone. Job cards and slips referencing this garage will keep their data but lose the garage reference.
         </div>
       </Modal>
     </div>

@@ -31,7 +31,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function LoadProvidersPage() {
-  const { allLoadProviders, loading, error, refetch, createLoadProvider } = useLoadProviders();
+  const { allLoadProviders, loading, error, refetch, createLoadProvider, updateLoadProvider, deleteLoadProvider } = useLoadProviders();
   const [search, setSearch] = useState('');
   const rows = React.useMemo(
     () => (allLoadProviders as LoadProvider[]).filter((lp) => matchesSearch(lp, ['name', 'shortName', 'contactNumber'], search)),
@@ -40,18 +40,34 @@ export default function LoadProvidersPage() {
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [delRow, setDelRow] = useState<LoadProvider | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
   const openModal = () => {
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setOpen(true);
   };
 
+  const openEdit = (lp: LoadProvider) => {
+    setEditingId(lp.id);
+    setForm({
+      name: lp.name,
+      shortName: lp.shortName ?? '',
+      contactNumber: lp.contactNumber ?? '',
+      isActive: lp.isActive,
+    });
+    setOpen(true);
+  };
+
   const submit = async () => {
+    if (!form.name.trim()) return toast.error('Enter a name');
     setSubmitting(true);
     try {
       const body: CreateLoadProviderBody = {
@@ -60,13 +76,32 @@ export default function LoadProvidersPage() {
         contactNumber: form.contactNumber,
         isActive: form.isActive,
       };
-      await createLoadProvider(body);
-      toast.success('Load provider created');
+      if (editingId) {
+        await updateLoadProvider(editingId, body);
+        toast.success('Load provider updated');
+      } else {
+        await createLoadProvider(body);
+        toast.success('Load provider created');
+      }
       setOpen(false);
     } catch (e) {
       toast.error(errMessage(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!delRow) return;
+    setDelBusy(true);
+    try {
+      await deleteLoadProvider(delRow.id);
+      toast.success('Load provider deleted');
+      setDelRow(null);
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setDelBusy(false);
     }
   };
 
@@ -91,6 +126,16 @@ export default function LoadProvidersPage() {
             Inactive
           </Pill>
         ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: LoadProvider) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button className="btn-ghost" onClick={() => openEdit(row)}>Edit</button>
+          <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(row)}>Delete</button>
+        </div>
+      ),
     },
   ];
 
@@ -121,7 +166,7 @@ export default function LoadProvidersPage() {
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Add Load Provider"
+        title={editingId ? 'Edit Load Provider' : 'Add Load Provider'}
         footer={
           <LoadingButton
             className="btn-brand"
@@ -173,6 +218,26 @@ export default function LoadProvidersPage() {
               onCheckedChange={(v: boolean) => set('isActive', v)}
             />
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!delRow}
+        onOpenChange={(v: boolean) => { if (!v) setDelRow(null); }}
+        title="Delete Load Provider"
+        footer={
+          <LoadingButton
+            className="btn-brand"
+            loading={delBusy}
+            onClick={confirmDelete}
+            style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}
+          >
+            Delete
+          </LoadingButton>
+        }
+      >
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Delete <b>{delRow?.name}</b>? This can’t be undone. Any trips linked to this provider will keep their history but lose the provider reference.
         </div>
       </Modal>
     </div>

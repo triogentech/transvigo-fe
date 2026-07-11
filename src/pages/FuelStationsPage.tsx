@@ -24,14 +24,17 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', isActive: true };
 
 export default function FuelStationsPage() {
-  const { allFuelStations, loading, error, refetch, createFuelStation } = useFuelStations();
+  const { allFuelStations, loading, error, refetch, createFuelStation, updateFuelStation, deleteFuelStation } = useFuelStations();
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [delRow, setDelRow] = useState<FuelStation | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
 
   const rows = React.useMemo(
     () =>
@@ -47,21 +50,48 @@ export default function FuelStationsPage() {
     setForm((f) => ({ ...f, [k]: v }));
 
   const openModal = () => {
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setOpen(true);
   };
 
+  const openEdit = (s: FuelStation) => {
+    setEditingId(s.id);
+    setForm({ name: s.name, isActive: s.isActive ?? true });
+    setOpen(true);
+  };
+
   const submit = async () => {
+    if (!form.name.trim()) return toast.error('Enter a name');
     setSubmitting(true);
     try {
       const body: CreateFuelStationBody = { name: form.name, isActive: form.isActive };
-      await createFuelStation(body);
-      toast.success('Fuel station created');
+      if (editingId) {
+        await updateFuelStation(editingId, body);
+        toast.success('Fuel station updated');
+      } else {
+        await createFuelStation(body);
+        toast.success('Fuel station created');
+      }
       setOpen(false);
     } catch (e) {
       toast.error(errMessage(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!delRow) return;
+    setDelBusy(true);
+    try {
+      await deleteFuelStation(delRow.id);
+      toast.success('Fuel station deleted');
+      setDelRow(null);
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setDelBusy(false);
     }
   };
 
@@ -78,6 +108,16 @@ export default function FuelStationsPage() {
             Inactive
           </Pill>
         ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: FuelStation) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button className="btn-ghost" onClick={() => openEdit(row)}>Edit</button>
+          <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(row)}>Delete</button>
+        </div>
+      ),
     },
   ];
 
@@ -119,7 +159,7 @@ export default function FuelStationsPage() {
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Add Fuel Station"
+        title={editingId ? 'Edit Fuel Station' : 'Add Fuel Station'}
         footer={
           <LoadingButton
             className="btn-brand"
@@ -149,6 +189,22 @@ export default function FuelStationsPage() {
               onCheckedChange={(v: boolean) => set('isActive', v)}
             />
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!delRow}
+        onOpenChange={(v: boolean) => { if (!v) setDelRow(null); }}
+        title="Delete Fuel Station"
+        footer={
+          <LoadingButton className="btn-brand" loading={delBusy} onClick={confirmDelete}
+            style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+            Delete
+          </LoadingButton>
+        }
+      >
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Delete <b>{delRow?.name}</b>? This can’t be undone. Fuel logs referencing this station will keep their data but lose the station reference.
         </div>
       </Modal>
     </div>

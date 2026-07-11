@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { matchesSearch } from '../lib/clientList';
 import { getSelect, type SelectOption } from '../api/select.api';
-import { getIssueSlips, createIssueSlip } from '../api/spare-parts.api';
+import { getIssueSlips, createIssueSlip, getSparePart, updateSparePart, deleteSparePart } from '../api/spare-parts.api';
 import type {
   CreateSparePartBody, SparePart, StockAdjustmentBody,
   SpareIssueSlip, CreateIssueSlipBody,
@@ -22,6 +22,7 @@ const Pill: React.FC<any> = UI.Pill;
 
 const inr = (v: string | number): string => `₹${Number(v).toLocaleString('en-IN')}`;
 const num = (v: string | number): number => Number(v);
+const fmtD = (s?: string | null): string => (s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 interface FormState {
   partNumber: string; partName: string; category: string;
@@ -54,6 +55,15 @@ export default function SparePartsPage() {
   const [lowOnly, setLowOnly] = useState(false);
   const [adj, setAdj] = useState<AdjState>(EMPTY_ADJ);
   const [adjBusy, setAdjBusy] = useState(false);
+
+  // ── Detail drill-down / edit / delete state ──
+  const [detail, setDetail] = useState<SparePart | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [editPart, setEditPart] = useState<SparePart | null>(null);
+  const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+  const [editBusy, setEditBusy] = useState(false);
+  const [delPart, setDelPart] = useState<SparePart | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
 
   // ── Issue-slip state ──
   const [slips, setSlips] = useState<SpareIssueSlip[]>([]);
@@ -129,6 +139,66 @@ export default function SparePartsPage() {
     }
   };
 
+  // Open the detail drawer — show the row immediately, then hydrate with usages.
+  const openDetail = async (p: SparePart) => {
+    setDetail(p);
+    setDetailLoading(true);
+    try { setDetail(await getSparePart(p.id)); }
+    catch (e) { toast.error(errMessage(e)); }
+    finally { setDetailLoading(false); }
+  };
+
+  const openEdit = (p: SparePart) => {
+    setEditForm({
+      partNumber: p.partNumber,
+      partName: p.partName,
+      category: p.category,
+      unitOfMeasure: p.unitOfMeasure,
+      currentStockQty: String(p.currentStockQty),
+      reorderLevel: String(p.reorderLevel),
+      unitCost: String(p.unitCost),
+    });
+    setEditPart(p);
+  };
+  const setE = <K extends keyof FormState>(k: K, v: FormState[K]) => setEditForm((f) => ({ ...f, [k]: v }));
+
+  const submitEdit = async () => {
+    if (!editPart) return;
+    if (!editForm.partName.trim() || !editForm.category.trim()) return toast.error('Name and category are required');
+    setEditBusy(true);
+    try {
+      await updateSparePart(editPart.id, {
+        partName: editForm.partName.trim(),
+        category: editForm.category.trim(),
+        unitOfMeasure: editForm.unitOfMeasure.trim() || 'piece',
+        reorderLevel: editForm.reorderLevel ? Number(editForm.reorderLevel) : 0,
+        unitCost: editForm.unitCost ? Number(editForm.unitCost) : 0,
+      });
+      toast.success('Spare part updated');
+      setEditPart(null);
+      await refetch();
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!delPart) return;
+    setDelBusy(true);
+    try {
+      await deleteSparePart(delPart.id);
+      toast.success('Spare part deleted');
+      setDelPart(null);
+      await refetch();
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setDelBusy(false);
+    }
+  };
+
   const submitAdj = async () => {
     if (!adj.part) return;
     if (!adj.qty || Number(adj.qty) <= 0) return toast.error('Enter a positive quantity');
@@ -189,9 +259,13 @@ export default function SparePartsPage() {
     { key: 'unitCost', header: 'Unit Cost', render: (r: SparePart) => inr(r.unitCost) },
     { key: 'totalStockValue', header: 'Stock Value', render: (r: SparePart) => inr(r.totalStockValue) },
     {
-      key: 'actions', header: 'Stock',
+      key: 'actions', header: 'Actions',
       render: (r: SparePart) => (
-        <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); setAdj({ ...EMPTY_ADJ, part: r }); }}>Adjust</button>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button className="btn-ghost" onClick={() => setAdj({ ...EMPTY_ADJ, part: r })}>Adjust</button>
+          <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
+          <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelPart(r)}>Delete</button>
+        </div>
       ),
     },
   ];
@@ -242,7 +316,7 @@ export default function SparePartsPage() {
               Below reorder only
             </label>
           </div>
-          <DataTable columns={columns} data={rows} loading={loading} emptyLabel="No spare parts found" pageSize={12} />
+          <DataTable columns={columns} data={rows} loading={loading} emptyLabel="No spare parts found" pageSize={12} onRowClick={openDetail} />
         </>
       ) : (
         <DataTable columns={slipColumns} data={slips} loading={slipsLoading} emptyLabel="No issue slips yet" pageSize={12} />
@@ -339,6 +413,87 @@ export default function SparePartsPage() {
           <Field label="Notes"><input className="tv-input w-full" value={slip.notes} onChange={(e) => setS('notes', e.target.value)} placeholder="Remarks" /></Field>
         </div>
       </Modal>
+
+      {/* Part detail — the items (issue-slip lines) this part was drawn on */}
+      <Modal open={!!detail} onOpenChange={(v: boolean) => { if (!v) setDetail(null); }}
+        title={detail ? `${detail.partNumber} — ${detail.partName}` : 'Spare Part'}>
+        {detail && (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <KVp label="Category" value={detail.category} />
+              <KVp label="Unit" value={detail.unitOfMeasure} />
+              <KVp label="In Stock" value={`${num(detail.currentStockQty)} ${detail.unitOfMeasure}`} />
+              <KVp label="Reorder At" value={String(num(detail.reorderLevel))} />
+              <KVp label="Unit Cost" value={inr(detail.unitCost)} />
+              <KVp label="Stock Value" value={inr(detail.totalStockValue)} />
+              <KVp label="Status" value={detail.isActive ? 'Active' : 'Inactive'} />
+            </div>
+
+            <div>
+              <div className="text-xs mb-2" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Issued Items {detailLoading ? '· loading…' : `· ${detail.usages?.length ?? 0}`}
+              </div>
+              {(detail.usages?.length ?? 0) === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+                  {detailLoading ? 'Loading…' : 'This part hasn’t been issued on any slip yet.'}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {detail.usages!.map((u) => (
+                    <div key={u.id} className="flex items-center justify-between" style={{ fontSize: 13, padding: '6px 8px', borderRadius: 6, background: 'var(--bg-sunken)' }}>
+                      <div className="flex flex-col">
+                        <span style={{ fontFamily: 'var(--font-mono, monospace)', color: 'var(--teal)' }}>{u.slip?.slipNumber ?? '—'}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {u.slip?.vehicle?.vehicleNumber ?? '—'}
+                          {u.slip?.jobCard ? ` · JC ${u.slip.jobCard.jobCardNumber}` : ''}
+                          {u.slip?.issuedAt ? ` · ${fmtD(u.slip.issuedAt)}` : ''}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div>{num(u.qtyIssued)} {detail.unitOfMeasure}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{inr(u.totalCost)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button className="btn-ghost" onClick={() => { const p = detail; setDetail(null); if (p) openEdit(p); }}>Edit</button>
+              <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => { const p = detail; setDetail(null); if (p) setDelPart(p); }}>Delete</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit part */}
+      <Modal open={!!editPart} onOpenChange={(v: boolean) => { if (!v) setEditPart(null); }}
+        title={editPart ? `Edit — ${editPart.partName}` : 'Edit Spare Part'}
+        footer={<LoadingButton className="btn-brand" loading={editBusy} onClick={submitEdit}>Save</LoadingButton>}>
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-3">
+            <Field label="Part Number"><input className="tv-input w-full" value={editForm.partNumber} disabled /></Field>
+            <Field label="Category *"><input className="tv-input w-full" value={editForm.category} onChange={(e) => setE('category', e.target.value)} /></Field>
+          </div>
+          <Field label="Part Name *"><input className="tv-input w-full" value={editForm.partName} onChange={(e) => setE('partName', e.target.value)} /></Field>
+          <div className="flex gap-3">
+            <Field label="Unit"><input className="tv-input w-full" value={editForm.unitOfMeasure} onChange={(e) => setE('unitOfMeasure', e.target.value)} /></Field>
+            <Field label="Reorder Level"><input className="tv-input w-full" type="number" value={editForm.reorderLevel} onChange={(e) => setE('reorderLevel', e.target.value)} /></Field>
+          </div>
+          <Field label="Unit Cost (₹)"><input className="tv-input w-full" type="number" value={editForm.unitCost} onChange={(e) => setE('unitCost', e.target.value)} /></Field>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Stock ({num(editForm.currentStockQty)}) is changed via “Adjust”.</div>
+        </div>
+      </Modal>
+
+      {/* Delete confirm */}
+      <Modal open={!!delPart} onOpenChange={(v: boolean) => { if (!v) setDelPart(null); }}
+        title="Delete Spare Part"
+        footer={<LoadingButton className="btn-brand" loading={delBusy} onClick={confirmDelete} style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>Delete</LoadingButton>}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Delete <b>{delPart?.partName}</b> ({delPart?.partNumber})? This can’t be undone. A part that has already been issued can’t be deleted — deactivate it instead.
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -348,6 +503,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="flex-1">
       <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function KVp({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 2 }}>{value}</div>
     </div>
   );
 }

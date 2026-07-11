@@ -63,6 +63,14 @@ export default function AnalyticsPage() {
     { key: 'costPer1000km', header: 'Cost / 1000km', render: (r: { costPer1000km: number }) => inr(r.costPer1000km) },
   ];
 
+  const vehicleMaintCols = [
+    { key: 'vehicleNumber', header: 'Vehicle', render: (r: { vehicleNumber: string }) => <span className="font-mono">{r.vehicleNumber}</span> },
+    { key: 'model', header: 'Make', render: (r: { model: string | null }) => r.model ?? '—' },
+    { key: 'maintenanceCost', header: 'Maintenance Cost', align: 'right', render: (r: { maintenanceCost: number }) => inr(r.maintenanceCost) },
+    { key: 'sparePartsValue', header: 'Spare Parts Value', align: 'right', render: (r: { sparePartsValue: number }) => inr(r.sparePartsValue) },
+    { key: 'invoiceAmount', header: 'Invoice Amount', align: 'right', render: (r: { invoiceAmount: number }) => inr(r.invoiceAmount) },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Fleet Analytics" breadcrumbs={['Operations', 'Analytics']} />
@@ -98,6 +106,15 @@ export default function AnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
         )}
+      </div>
+
+      {/* Vehicle-wise maintenance breakdown */}
+      <div className="tv-card" style={{ padding: 16 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-display" style={{ fontSize: 14, fontWeight: 600 }}>Vehicle-wise Maintenance</div>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Maintenance, spare-part value &amp; invoices per vehicle</span>
+        </div>
+        <DataTable columns={vehicleMaintCols} data={data?.vehicleMaintenance ?? []} loading={loading} emptyLabel="No maintenance data yet" pageSize={10} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">

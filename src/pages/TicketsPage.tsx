@@ -158,6 +158,18 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
             <KV label="Opened" value={shortDate(ticket.openedAt)} />
           </div>
 
+          {/* Stage timeline — timestamp (and actor) captured at each stage */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Stage Timeline</div>
+            <div className="tv-card-flat" style={{ padding: '12px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+              <KV label="Created" value={shortDate(ticket.ticketDate ?? ticket.openedAt)} />
+              <KV label="Acknowledged" value={ticket.acknowledgedAt ? `${shortDate(ticket.acknowledgedAt)}${ticket.acknowledgedByUser ? ` · ${ticket.acknowledgedByUser.username}` : ''}` : '—'} />
+              <KV label="In Progress" value={ticket.inProgressAt ? shortDate(ticket.inProgressAt) : '—'} />
+              <KV label="Resolved" value={ticket.resolvedAt ? `${shortDate(ticket.resolvedAt)}${ticket.resolvedByUser ? ` · ${ticket.resolvedByUser.username}` : ''}` : '—'} />
+              <KV label="Closed" value={ticket.closedAt ? shortDate(ticket.closedAt) : '—'} />
+            </div>
+          </div>
+
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Description</div>
             <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>{ticket.description}</div>
@@ -240,18 +252,22 @@ function KV({ label, value, mono, color }: { label: string; value: string; mono?
 }
 
 // ── Raise ticket modal ──
-const EMPTY: { vehicleId: string; issueType: TicketIssueType; priority: TicketPriority; title: string; description: string; location: string } = {
-  vehicleId: '', issueType: 'breakdown', priority: 'medium', title: '', description: '', location: '',
+const ticketTodayISO = (): string => new Date().toISOString().slice(0, 10);
+
+const EMPTY: { vehicleId: string; issueType: TicketIssueType; priority: TicketPriority; title: string; description: string; location: string; ticketDate: string; assignedTo: string } = {
+  vehicleId: '', issueType: 'breakdown', priority: 'medium', title: '', description: '', location: '', ticketDate: ticketTodayISO(), assignedTo: '',
 };
 function RaiseTicketModal({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: () => void }) {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
+  const [assignees, setAssignees] = useState<SelectOption[]>([]);
   const set = <K extends keyof typeof EMPTY>(k: K, v: (typeof EMPTY)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
     if (!open) return;
     setForm(EMPTY);
+    getSelect('assignees').then(setAssignees).catch(() => undefined);
   }, [open]);
 
   const submit = async () => {
@@ -265,6 +281,8 @@ function RaiseTicketModal({ open, onOpenChange, onCreated }: { open: boolean; on
         title: form.title.trim(),
         description: form.description.trim(),
         location: form.location.trim() || undefined,
+        ticketDate: form.ticketDate ? new Date(form.ticketDate).toISOString() : null,
+        assignedTo: form.assignedTo || null,
       };
       await ticketsApi.createTicket(body);
       toast.success('Ticket raised');
@@ -278,6 +296,23 @@ function RaiseTicketModal({ open, onOpenChange, onCreated }: { open: boolean; on
     <Modal open={open} onOpenChange={onOpenChange} title="Raise Ticket" width={560}
       footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit}>Submit</LoadingButton>}>
       <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Labeled label="Date">
+            <input className="tv-input w-full" type="date" value={form.ticketDate} onChange={(e) => set('ticketDate', e.target.value)} />
+          </Labeled>
+          <Labeled label="Assigned To">
+            <AsyncSelect
+              entity="assignees"
+              staticOptions={assignees}
+              value={form.assignedTo}
+              onChange={(v) => set('assignedTo', v)}
+              placeholder="Auto-assign"
+              clearable
+              clearLabel="Auto-assign"
+              emptyLabel="No users found"
+            />
+          </Labeled>
+        </div>
         <Labeled label="Vehicle">
           <AsyncSelect
             entity="vehicles"

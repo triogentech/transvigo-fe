@@ -14,11 +14,56 @@ import {
 } from '../components/ui.jsx';
 import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../components/states.tsx';
 import { SearchInput } from '../components/SearchInput';
-import { cx, formatINR, relTime, dateTime, shortDate } from '../lib/utils.js';
+import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
 import { createTrip as apiCreateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip } from '../api/trips.api.ts';
 import { errMessage } from '../api/client.ts';
+
+// ── User preferences (persisted in localStorage) ──
+const TRIPS_PREFS_KEY = 'transvigo.trips.prefs';
+const DEFAULT_TRIPS_TAB = 'in_transit';
+
+function loadTripsPrefs() {
+  try {
+    const raw = localStorage.getItem(TRIPS_PREFS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore malformed prefs */ }
+  return {};
+}
+
+function saveTripsPrefs(patch) {
+  try {
+    localStorage.setItem(TRIPS_PREFS_KEY, JSON.stringify({ ...loadTripsPrefs(), ...patch }));
+  } catch { /* storage unavailable — ignore */ }
+}
+
+// Format a Date as the local "YYYY-MM-DDTHH:mm" value a datetime-local input expects.
+function toDatetimeLocalValue(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Format a minute count as a compact turnaround string, e.g. "3h 30m".
+function formatTAT(minutes) {
+  if (minutes == null || Number.isNaN(minutes) || minutes < 0) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// Elapsed turnaround so far (minutes). Live for in-transit trips, final for completed, null before start.
+function runningTATMinutes(row) {
+  if (row.currentStatus === 'created') return null;
+  const start = new Date(row.estimatedStartTime).getTime();
+  if (Number.isNaN(start)) return null;
+  const end = row.currentStatus === 'completed' && row.actualEndTime
+    ? new Date(row.actualEndTime).getTime()
+    : Date.now();
+  return Math.max(0, Math.round((end - start) / 60000));
+}
 
 // ── FilterPopover ──
 function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, allLoadProviders }) {
@@ -179,13 +224,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  // Derive Est. End from an Est. Start + a duration (minutes). Returns '' if it can't be computed.
+  // Derive Est. End from an Est. Start + a duration (hours). Returns '' if it can't be computed.
   const deriveEstEnd = (estStart, duration) => {
-    const mins = Number(duration);
-    if (!estStart || !mins || mins <= 0) return '';
+    const hours = Number(duration);
+    if (!estStart || !hours || hours <= 0) return '';
     const start = new Date(estStart);
     if (Number.isNaN(start.getTime())) return '';
-    return toDatetimeLocal(new Date(start.getTime() + mins * 60000));
+    return toDatetimeLocal(new Date(start.getTime() + hours * 3600000));
   };
 
   // Est. End is read-only and always reflects Est. Start + Duration (cleared when either is missing).
@@ -231,7 +276,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
         estimatedStartTime: form.estStart ? new Date(form.estStart).toISOString() : new Date().toISOString(),
         estimatedEndTime: form.estEnd ? new Date(form.estEnd).toISOString() : new Date().toISOString(),
         totalTripDistanceKm: Number(form.distance) || 0,
-        totalTripTimeMinutes: Number(form.duration) || 0,
+        totalTripTimeMinutes: form.duration ? Math.round(Number(form.duration) * 60) : 0,
         freightTotalAmount: Number(form.freight) || 0,
         advanceAmount: form.advance ? Number(form.advance) : undefined,
         vendorCode: form.vendorCode || undefined,
@@ -367,8 +412,8 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
               <input type="number" style={inputStyle} placeholder="e.g. 148" value={form.distance} onChange={(e) => setF('distance', e.target.value)} />
             </div>
             <div>
-              <label style={labelStyle}>Duration (min)</label>
-              <input type="number" style={inputStyle} placeholder="e.g. 210" value={form.duration} onChange={(e) => setDuration(e.target.value)} />
+              <label style={labelStyle}>Duration (hours)</label>
+              <input type="number" step="0.5" style={inputStyle} placeholder="e.g. 3.5" value={form.duration} onChange={(e) => setDuration(e.target.value)} />
             </div>
           </div>
 
@@ -481,7 +526,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 12 }}>
               <div><span style={{ color: 'var(--text-dim)' }}>Distance: </span><span className="font-mono" style={{ color: 'var(--text-muted)' }}>{form.distance ? `${form.distance} km` : '—'}</span></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Duration: </span><span className="font-mono" style={{ color: 'var(--text-muted)' }}>{form.duration ? `${form.duration} min` : '—'}</span></div>
+              <div><span style={{ color: 'var(--text-dim)' }}>Duration: </span><span className="font-mono" style={{ color: 'var(--text-muted)' }}>{form.duration ? `${form.duration} hr` : '—'}</span></div>
               <div><span style={{ color: 'var(--text-dim)' }}>Stops: </span><span className="font-mono" style={{ color: 'var(--text-muted)' }}>{touchingLocations ? locations.filter(Boolean).length : 0}</span></div>
             </div>
             {form.estStart && (
@@ -838,17 +883,26 @@ function TripDetailModal({ tripId, open, onOpenChange }) {
 export default function Trips() {
   const toast = useToast();
 
+  // Restore saved preferences once (default tab = In Transit).
+  const initialPrefs = useMemo(loadTripsPrefs, []);
+  const initialTab = initialPrefs.tab ?? DEFAULT_TRIPS_TAB;
+  const initialPageSize = initialPrefs.pageSize ?? 10;
+
   const {
     trips, meta, filterOptions, statusCounts, loading, error, filters, setFilters, refetch,
-  } = useTripsPage();
+  } = useTripsPage({
+    page: 1,
+    pageSize: initialPageSize,
+    status: initialTab === 'all' ? undefined : initialTab,
+  });
   const [search, setSearch] = useState('');
 
   const allDrivers = filterOptions?.drivers ?? [];
   const allVehicles = filterOptions?.vehicles ?? [];
   const allLoadProviders = filterOptions?.loadProviders ?? [];
 
-  // Tab state (mirrors filters.status)
-  const [activeTab, setActiveTab] = useState('all');
+  // Tab state (mirrors filters.status) — restored from saved preferences.
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
@@ -859,6 +913,11 @@ export default function Trips() {
   const [cancelTrip, setCancelTrip] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
+  // Complete-trip state — captures the user-fed actual end time.
+  const [completeTrip, setCompleteTrip] = useState(null);
+  const [completeTime, setCompleteTime] = useState('');
+  const [completing, setCompleting] = useState(false);
+
   function openDetail(trip) {
     setSelectedTripId(trip.id);
     setDetailOpen(true);
@@ -866,6 +925,7 @@ export default function Trips() {
 
   function handleTabChange(tab) {
     setActiveTab(tab);
+    saveTripsPrefs({ tab });
     setFilters({ ...filters, status: tab === 'all' ? undefined : tab, page: 1 });
   }
 
@@ -888,13 +948,25 @@ export default function Trips() {
     }
   }
 
-  async function handleMarkCompleted(trip) {
+  // Open the completion dialog, pre-filling the actual end time with "now".
+  function handleMarkCompleted(trip) {
+    setCompleteTime(toDatetimeLocalValue(new Date()));
+    setCompleteTrip(trip);
+  }
+
+  async function handleCompleteConfirm() {
+    if (!completeTrip) return;
+    setCompleting(true);
     try {
-      await apiUpdateTripStatus(trip.id, 'completed');
-      toast({ title: 'Trip completed', description: `${trip.tripNumber} marked as Completed`, color: 'var(--success)', icon: <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} /> });
+      const actualEndTime = completeTime ? new Date(completeTime).toISOString() : undefined;
+      await apiUpdateTripStatus(completeTrip.id, 'completed', actualEndTime);
+      toast({ title: 'Trip completed', description: `${completeTrip.tripNumber} marked as Completed`, color: 'var(--success)', icon: <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} /> });
+      setCompleteTrip(null);
       await refetch();
     } catch (e) {
       toast({ title: 'Update failed', description: errMessage(e), color: 'var(--danger)' });
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -918,12 +990,20 @@ export default function Trips() {
     }
   }
 
-  // Table columns
+  // Table columns — order & set defined by user preference.
   const columns = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      className: 'whitespace-nowrap',
+      render: (row) => row.vehicle
+        ? <Pill color="var(--teal)"><span className="font-mono">{row.vehicle.vehicleNumber}</span></Pill>
+        : <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>—</span>,
+    },
     {
       key: 'tripNumber',
       header: 'Trip #',
-      width: 170,
+      className: 'whitespace-nowrap',
       render: (row) => (
         <button
           className="font-mono"
@@ -935,41 +1015,115 @@ export default function Trips() {
       ),
     },
     {
-      key: 'route',
-      header: 'Route',
+      key: 'from',
+      header: 'From',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{row.startPoint}</span>,
+    },
+    {
+      key: 'touching',
+      header: 'Touching',
+      className: 'whitespace-nowrap',
+      render: (row) => {
+        const locs = (row.touchingLocations ?? []).slice().sort((a, b) => a.sequence - b.sequence);
+        if (!locs.length) return <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>—</span>;
+        const names = locs.map((l) => l.name).filter(Boolean);
+        return (
+          <span title={names.join('  →  ')} style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {locs.length} stop{locs.length > 1 ? 's' : ''}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'to',
+      header: 'To',
+      className: 'whitespace-nowrap',
       render: (row) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-primary)' }}>
-          {row.startPoint}
           <ArrowRight size={12} style={{ color: 'var(--teal)', flexShrink: 0 }} />
           {row.endPoint}
         </span>
       ),
     },
     {
-      key: 'driver',
-      header: 'Driver',
-      render: (row) => row.driver ? (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <TVAvatar name={row.driver.fullName} size={24} />
-          <span style={{ color: 'var(--text-primary)' }}>{row.driver.fullName}</span>
-        </span>
-      ) : <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>—</span>,
+      key: 'distance',
+      header: 'Distance (km)',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{row.totalTripDistanceKm != null ? row.totalTripDistanceKm : '—'}</span>,
     },
     {
-      key: 'vehicle',
-      header: 'Vehicle',
-      render: (row) => row.vehicle
-        ? <Pill color="var(--teal)"><span className="font-mono">{row.vehicle.vehicleNumber}</span></Pill>
-        : <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>—</span>,
+      key: 'startTime',
+      header: 'Start Time',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedStartTime)}</span>,
     },
     {
-      key: 'loadProvider',
-      header: 'Load Provider',
-      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.loadProvider?.name || '—'}</span>,
+      key: 'endTime',
+      header: 'End Time',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedEndTime)}</span>,
+    },
+    {
+      key: 'freightTotalAmount',
+      header: 'Freight',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>{formatINR(row.freightTotalAmount)}</span>,
+    },
+    {
+      key: 'advanceAmount',
+      header: 'Advance',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatINR(row.advanceAmount)}</span>,
+    },
+    {
+      key: 'balance',
+      header: 'Balance',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => {
+        const bal = (row.freightTotalAmount || 0) - (row.advanceAmount || 0);
+        return <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>{formatINR(bal)}</span>;
+      },
+    },
+    {
+      key: 'tat',
+      header: 'TAT',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }} title="Planned turnaround time">{formatTAT(row.totalTripTimeMinutes)}</span>,
+    },
+    {
+      key: 'actualEndTime',
+      header: 'Actual End Time',
+      className: 'whitespace-nowrap',
+      render: (row) => row.actualEndTime
+        ? <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{dateTime(row.actualEndTime)}</span>
+        : <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>—</span>,
+    },
+    {
+      key: 'runningTat',
+      header: 'Running TAT',
+      align: 'right',
+      className: 'whitespace-nowrap',
+      render: (row) => {
+        const mins = runningTATMinutes(row);
+        if (mins == null) return <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>—</span>;
+        const live = row.currentStatus === 'in_transit';
+        return (
+          <span className="font-mono" style={{ fontSize: 12, color: live ? 'var(--teal)' : 'var(--text-muted)' }} title={live ? 'Elapsed so far' : 'Total elapsed'}>
+            {formatTAT(mins)}
+          </span>
+        );
+      },
     },
     {
       key: 'currentStatus',
       header: 'Status',
+      className: 'whitespace-nowrap',
       render: (row) => {
         const late = row.currentStatus === 'in_transit' && row.estimatedEndTime && new Date(row.estimatedEndTime) < new Date();
         return (
@@ -986,26 +1140,40 @@ export default function Trips() {
       },
     },
     {
-      key: 'freightTotalAmount',
-      header: 'Freight',
-      align: 'right',
-      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>{formatINR(row.freightTotalAmount)}</span>,
+      key: 'driver',
+      header: 'Driver',
+      className: 'whitespace-nowrap',
+      render: (row) => row.driver ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+          <TVAvatar name={row.driver.fullName} size={24} />
+          <span style={{ color: 'var(--text-primary)' }}>{row.driver.fullName}</span>
+        </span>
+      ) : <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>—</span>,
     },
     {
-      key: 'advanceAmount',
-      header: 'Advance',
-      align: 'right',
-      render: (row) => <span className="font-mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatINR(row.advanceAmount)}</span>,
+      key: 'loadProvider',
+      header: 'Logistic Provider',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.loadProvider?.name || '—'}</span>,
     },
     {
-      key: 'createdAt',
-      header: 'Created',
-      render: (row) => <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{relTime(row.createdAt)}</span>,
+      key: 'createdBy',
+      header: 'Created By',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.createdByUser?.username || '—'}</span>,
+    },
+    {
+      key: 'updatedBy',
+      header: 'Updated By',
+      className: 'whitespace-nowrap',
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.updatedByUser?.username || '—'}</span>,
     },
     {
       key: 'actions',
       header: '',
       width: 44,
+      className: 'whitespace-nowrap',
+      sticky: 'right',
       render: (row) => (
         <span onClick={(e) => e.stopPropagation()}>
           <Menu
@@ -1080,6 +1248,7 @@ export default function Trips() {
                 })}
                 onReset={() => {
                   setActiveTab('all');
+                  saveTripsPrefs({ tab: 'all' });
                   setFilters({ page: 1, pageSize: filters.pageSize ?? 10 });
                 }}
               />
@@ -1160,7 +1329,7 @@ export default function Trips() {
           <TVSelect
             small
             value={String(filters.pageSize ?? 10)}
-            onValueChange={(v) => setFilters({ ...filters, pageSize: Number(v), page: 1 })}
+            onValueChange={(v) => { saveTripsPrefs({ pageSize: Number(v) }); setFilters({ ...filters, pageSize: Number(v), page: 1 }); }}
             options={[{ value: '10', label: '10' }, { value: '25', label: '25' }, { value: '50', label: '50' }]}
           />
         </div>
@@ -1210,6 +1379,59 @@ export default function Trips() {
                   Cancel Trip
                 </LoadingButton>
               </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
+      {/* Complete Trip — capture the actual end time */}
+      <AlertDialog.Root open={!!completeTrip} onOpenChange={(open) => { if (!open && !completing) setCompleteTrip(null); }}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="radix-overlay" />
+          <AlertDialog.Content
+            className="radix-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] p-5"
+            style={{ width: 'min(420px, calc(100vw - 32px))', background: 'var(--navy-mid)', border: '1px solid var(--border-hover)', borderRadius: 4 }}
+          >
+            <AlertDialog.Title className="font-display font-bold" style={{ fontSize: 18, color: 'var(--text-primary)' }}>
+              Complete Trip
+            </AlertDialog.Title>
+            <AlertDialog.Description style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
+              Mark trip <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{completeTrip?.tripNumber}</span> as completed.
+              Enter the actual end time.
+            </AlertDialog.Description>
+            <div style={{ marginTop: 16 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>
+                Actual End Time <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={completeTime}
+                onChange={(e) => setCompleteTime(e.target.value)}
+                style={{
+                  background: 'var(--navy-base)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                  padding: '7px 10px',
+                  borderRadius: 4,
+                  width: '100%',
+                  fontSize: 13,
+                  fontFamily: 'var(--font-body)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <AlertDialog.Cancel asChild>
+                <button className="btn-ghost px-3 py-1.5" style={{ fontSize: 13 }} disabled={completing}>Cancel</button>
+              </AlertDialog.Cancel>
+              <LoadingButton
+                loading={completing}
+                disabled={!completeTime}
+                style={{ fontSize: 13, background: 'var(--success)', color: '#fff', borderRadius: 4, fontFamily: 'var(--font-display)', fontWeight: 600, padding: '6px 12px', opacity: completeTime ? 1 : 0.5 }}
+                onClick={handleCompleteConfirm}
+              >
+                Complete Trip
+              </LoadingButton>
             </div>
           </AlertDialog.Content>
         </AlertDialog.Portal>

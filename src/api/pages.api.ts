@@ -24,6 +24,7 @@ export interface DashboardPage {
   tripActivity: Array<{ date: string; started: number; completed: number }>;
   expenseBreakdown: Array<{ txnTowards: TxnTowards; total: number; count: number }>;
   complianceAlerts: Array<{ vehicleId: string; vehicleNumber: string; documentType: string; expiryDate: string; daysLeft: number }>;
+  vendorSummary: Array<{ vendorId: string; vendorName: string; outstanding: number; billsRaised: number; billsCount: number; sparePartsIssued: number }>;
   generatedAt: string;
 }
 
@@ -32,6 +33,7 @@ export const getDashboardPage = () => get<DashboardPage>('/api/pages/dashboard')
 export interface AnalyticsPage {
   fleet: { fuel: number; toll: number; job: number; invoice: number; tyre: number; total: number };
   perVehicle: Array<{ vehicleId: string; vehicleNumber: string; model: string | null; fuel: number; toll: number; job: number; invoice: number; total: number }>;
+  vehicleMaintenance: Array<{ vehicleId: string; vehicleNumber: string; model: string | null; maintenanceCost: number; sparePartsValue: number; invoiceAmount: number }>;
   vehicleBrands: Array<{ brand: string; count: number; totalCost: number; avgCost: number; breakdowns: number }>;
   tyreBrands: Array<{ brand: string; totalTyres: number; avgKmPerTyre: number; avgPurchaseCost: number; costPer1000km: number }>;
 }

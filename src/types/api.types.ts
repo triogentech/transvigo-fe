@@ -167,6 +167,9 @@ export interface Trip {
   driver?: Driver; vehicle?: Vehicle; loadProvider?: LoadProvider;
   transactions?: Transaction[]; fuelLogs?: FuelLog[];
   createdAt: string; updatedAt: string;
+  createdBy?: string; updatedBy?: string;
+  createdByUser?: { id: string; username: string } | null;
+  updatedByUser?: { id: string; username: string } | null;
 }
 export interface CreateTripBody {
   startPoint: string; endPoint: string;
@@ -302,8 +305,12 @@ export interface Ticket {
   description: string;
   location?: string | null;
   allottedTimeHours: number;
+  ticketDate?: string | null;
   openedAt: string;
+  acknowledgedAt?: string | null;
+  inProgressAt?: string | null;
   resolvedAt?: string | null;
+  closedAt?: string | null;
   isResolvedOnTime?: boolean | null;
   assignedTo?: string | null;
   resolution?: string | null;
@@ -313,6 +320,8 @@ export interface Ticket {
   vehicle?: { id: string; vehicleNumber: string } | null;
   driver?: { id: string; fullName: string } | null;
   assignedToUser?: { id: string; username: string } | null;
+  acknowledgedByUser?: { id: string; username: string } | null;
+  resolvedByUser?: { id: string; username: string } | null;
   history?: TicketHistoryEntry[];
   _count?: { history: number };
 }
@@ -325,6 +334,8 @@ export interface CreateTicketBody {
   title: string;
   description: string;
   location?: string;
+  ticketDate?: string | null;
+  assignedTo?: string | null;
 }
 
 // ── Activity Log ──
@@ -389,6 +400,7 @@ export interface JobCard {
   driverComplaint: string;
   diagnosis?: string | null;
   workDone?: string | null;
+  jobCardDate?: string | null;
   entryTime: string;
   closedTime?: string | null;
   isLoadReady: boolean;
@@ -401,6 +413,8 @@ export interface JobCard {
 }
 
 export interface CreateJobCardBody {
+  jobCardNumber: string;
+  jobCardDate?: string | null;
   vehicleId: string;
   driverId?: string | null;
   entryOdometer?: number;
@@ -415,6 +429,20 @@ export interface JobCardFilters extends PaginationParams {
 }
 
 // ── Spare Parts (Inventory) ───────────────────────────────────────────
+export interface SparePartUsage {
+  id: string;
+  partName: string;
+  qtyIssued: string | number;
+  unitCost: string | number;
+  totalCost: string | number;
+  slip?: {
+    id: string;
+    slipNumber: string;
+    issuedAt: string;
+    vehicle?: { id: string; vehicleNumber: string } | null;
+    jobCard?: { id: string; jobCardNumber: string } | null;
+  } | null;
+}
 export interface SparePart {
   id: string;
   partNumber: string;
@@ -427,6 +455,8 @@ export interface SparePart {
   totalStockValue: string | number;
   isActive: boolean;
   createdAt: string;
+  /** Populated only by the get-by-id (detail) endpoint. */
+  usages?: SparePartUsage[];
 }
 export interface CreateSparePartBody {
   partNumber: string;
@@ -463,6 +493,8 @@ export interface Tyre {
   totalKmRun: number;
   expectedLifeKm: number;
   healthPct: number;
+  fittedInOdometer?: number | null;
+  removedAtOdometer?: number | null;
   purchaseCost?: string | number | null;
   notes?: string | null;
   createdAt: string;

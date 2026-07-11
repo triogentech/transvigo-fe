@@ -114,6 +114,45 @@ const TRIP_COLUMNS = [
   },
 ];
 
+// Vendor-wise summary: outstanding, bills raised, and spare parts issued per vendor.
+const VENDOR_COLUMNS = [
+  {
+    key: 'vendorName',
+    header: 'Vendor',
+    render: (row) => <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{row.vendorName}</span>,
+  },
+  {
+    key: 'outstanding',
+    header: 'Outstanding',
+    align: 'right',
+    render: (row) => (
+      <span className="font-mono" style={{ fontSize: 12.5, color: row.outstanding > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
+        {formatINR(row.outstanding)}
+      </span>
+    ),
+  },
+  {
+    key: 'billsRaised',
+    header: 'Bills Raised',
+    align: 'right',
+    render: (row) => (
+      <span className="font-mono" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+        {formatINR(row.billsRaised)} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>({row.billsCount})</span>
+      </span>
+    ),
+  },
+  {
+    key: 'sparePartsIssued',
+    header: 'Spare Parts Issued',
+    align: 'right',
+    render: (row) => (
+      <span className="font-mono" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+        {formatINR(row.sparePartsIssued)}
+      </span>
+    ),
+  },
+];
+
 // ─────────────────────────────────────────────
 // Main Dashboard
 // ─────────────────────────────────────────────
@@ -574,6 +613,27 @@ export default function Dashboard() {
         </Card>
 
       </div>
+
+      {/* 6. Vendor Summary */}
+      <Card className="p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <span
+            className="font-display font-bold uppercase"
+            style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.06em' }}
+          >
+            Vendor Summary
+          </span>
+          <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            {(data?.vendorSummary ?? []).length} vendors
+          </span>
+        </div>
+        <DataTable
+          columns={VENDOR_COLUMNS}
+          data={data?.vendorSummary ?? []}
+          paginate={false}
+          emptyLabel="No vendor activity yet"
+        />
+      </Card>
 
     </div>
   );

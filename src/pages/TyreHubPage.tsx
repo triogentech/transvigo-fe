@@ -133,6 +133,28 @@ export default function TyreHubPage() {
       ),
     },
     {
+      key: 'serviceLife',
+      header: 'Service Life',
+      render: (r: Tyre) => {
+        const km = (n: number) => n.toLocaleString('en-IN');
+        const fitted = r.fittedInOdometer ?? null;
+        const removed = r.removedAtOdometer ?? null;
+        if (fitted == null) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
+        const life = removed != null ? Math.max(0, removed - fitted) : null;
+        return (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 150 }}>
+            <div>Fitted In: <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{km(fitted)}</span> km</div>
+            <div>Removed At: <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{removed != null ? `${km(removed)} km` : '—'}</span></div>
+            {life != null && (
+              <div style={{ color: 'var(--text-primary)' }}>
+                Total Life: <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{km(life)}</span> km
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: 'actions',
       header: 'Move',
       render: (r: Tyre) => (
@@ -217,7 +239,9 @@ export default function TyreHubPage() {
             </Field>
             <Field label="Position"><input className="tv-input w-full" value={move.position} onChange={(e) => setMove((m) => ({ ...m, position: e.target.value }))} placeholder="FL / RL1 …" /></Field>
           </div>
-          <Field label="Odometer at event (km)"><input className="tv-input w-full" type="number" value={move.odometerAtEvent} onChange={(e) => setMove((m) => ({ ...m, odometerAtEvent: e.target.value }))} /></Field>
+          <Field label={move.movementType === 'fitted' ? 'Odometer at fitment (km)' : move.movementType === 'removed' ? 'Odometer at removal (km)' : 'Odometer at event (km)'}>
+            <input className="tv-input w-full" type="number" value={move.odometerAtEvent} onChange={(e) => setMove((m) => ({ ...m, odometerAtEvent: e.target.value }))} placeholder="e.g. 464000" />
+          </Field>
         </div>
       </Modal>
     </div>

@@ -31,12 +31,25 @@ const inr = (v: string | number): string => `₹${Number(v).toLocaleString('en-I
 const fmtDate = (s?: string | null): string => (s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 interface FormState {
+  jobCardNumber: string;
+  jobCardDate: string;
   vehicleId: string;
   driverComplaint: string;
   entryOdometer: string;
   garageId: string;
 }
-const EMPTY_FORM: FormState = { vehicleId: '', driverComplaint: '', entryOdometer: '', garageId: '' };
+
+// Today's date as an ISO "YYYY-MM-DD" value for a <input type="date">.
+const todayISO = (): string => new Date().toISOString().slice(0, 10);
+
+const EMPTY_FORM: FormState = { jobCardNumber: '', jobCardDate: todayISO(), vehicleId: '', driverComplaint: '', entryOdometer: '', garageId: '' };
+
+// Build the suggested "DD/MM/YY-VehicleNumber" job-card number from an ISO date + vehicle label.
+const suggestJobCardNumber = (isoDate: string, vehicleLabel?: string): string => {
+  if (!isoDate || !vehicleLabel) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${d}/${m}/${y.slice(2)}-${vehicleLabel}`;
+};
 
 export default function JobCardsPage() {
   const { allJobCards, loading, error, refetch, createJobCard, changeStatus } = useJobCards();
@@ -78,6 +91,24 @@ export default function JobCardsPage() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Re-suggest the job-card number from date + vehicle, unless the user has already
+  // typed a value that differs from the current suggestion (i.e. edited it manually).
+  const setVehicle = (vehicleId: string) =>
+    setForm((f) => {
+      const label = vehicles.find((v) => v.value === vehicleId)?.label;
+      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, vehicles.find((v) => v.value === f.vehicleId)?.label);
+      const keepManual = f.jobCardNumber && f.jobCardNumber !== prevSuggestion;
+      return { ...f, vehicleId, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(f.jobCardDate, label) };
+    });
+
+  const setDate = (jobCardDate: string) =>
+    setForm((f) => {
+      const label = vehicles.find((v) => v.value === f.vehicleId)?.label;
+      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, label);
+      const keepManual = f.jobCardNumber && f.jobCardNumber !== prevSuggestion;
+      return { ...f, jobCardDate, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(jobCardDate, label) };
+    });
+
   const openModal = () => {
     setForm(EMPTY_FORM);
     setOpen(true);
@@ -85,10 +116,13 @@ export default function JobCardsPage() {
 
   const submit = async () => {
     if (!form.vehicleId) return toast.error('Select a vehicle');
+    if (!form.jobCardNumber.trim()) return toast.error('Enter the job card number');
     if (!form.driverComplaint.trim()) return toast.error('Enter the driver complaint');
     setSubmitting(true);
     try {
       const body: CreateJobCardBody = {
+        jobCardNumber: form.jobCardNumber.trim(),
+        jobCardDate: form.jobCardDate ? new Date(form.jobCardDate).toISOString() : null,
         vehicleId: form.vehicleId,
         driverComplaint: form.driverComplaint.trim(),
         entryOdometer: form.entryOdometer ? Number(form.entryOdometer) : 0,
@@ -115,6 +149,7 @@ export default function JobCardsPage() {
 
   const columns = [
     { key: 'jobCardNumber', header: 'Job Card #', render: (r: JobCard) => <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.jobCardNumber}</span> },
+    { key: 'jobCardDate', header: 'Date', render: (r: JobCard) => fmtDate(r.jobCardDate ?? r.entryTime) },
     { key: 'vehicle', header: 'Vehicle', render: (r: JobCard) => r.vehicle?.vehicleNumber ?? '—' },
     {
       key: 'status',
@@ -188,14 +223,38 @@ export default function JobCardsPage() {
         footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit}>Create</LoadingButton>}
       >
         <div className="flex flex-col gap-3">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Date</label>
+              <input
+                className="tv-input w-full"
+                type="date"
+                value={form.jobCardDate}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Vehicle *</label>
+              <select className="tv-input w-full" value={form.vehicleId} onChange={(e) => setVehicle(e.target.value)}>
+                <option value="">Select vehicle…</option>
+                {vehicles.map((v) => (
+                  <option key={v.value} value={v.value}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Vehicle *</label>
-            <select className="tv-input w-full" value={form.vehicleId} onChange={(e) => set('vehicleId', e.target.value)}>
-              <option value="">Select vehicle…</option>
-              {vehicles.map((v) => (
-                <option key={v.value} value={v.value}>{v.label}</option>
-              ))}
-            </select>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Job Card Number *</label>
+            <input
+              className="tv-input w-full"
+              style={{ fontFamily: 'var(--font-mono, monospace)' }}
+              value={form.jobCardNumber}
+              onChange={(e) => set('jobCardNumber', e.target.value)}
+              placeholder="e.g. 11/06/26-8746"
+            />
+            <span className="block text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Format: DD/MM/YY-VehicleNumber — auto-filled from the date &amp; vehicle, editable.
+            </span>
           </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Driver Complaint *</label>

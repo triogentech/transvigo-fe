@@ -169,7 +169,13 @@ export function DataTable({ columns, data, onRowClick, rowClassName, emptyLabel 
                   <th
                     key={c.key}
                     className="px-3 py-2.5 font-body font-medium uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-dim)', fontSize: 10.5, textAlign: c.align || 'left', borderBottom: '1px solid var(--border)', width: c.width }}
+                    style={{
+                      color: 'var(--text-dim)', fontSize: 10.5, textAlign: c.align || 'left',
+                      borderBottom: '1px solid var(--border)', width: c.width,
+                      ...(c.sticky === 'right'
+                        ? { position: 'sticky', right: 0, zIndex: 3, background: 'var(--bg-sunken)', borderLeft: '1px solid var(--border)' }
+                        : {}),
+                    }}
                   >
                     {c.header}
                   </th>
@@ -203,12 +209,21 @@ export function DataTable({ columns, data, onRowClick, rowClassName, emptyLabel 
                       key={row.id ?? ri}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
                       className={cx('tv-row transition-colors', onRowClick && 'cursor-pointer', typeof rowClassName === 'function' ? rowClassName(row) : rowClassName)}
-                      style={{ borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      style={{ borderBottom: '1px solid var(--border)', '--row-bg': 'var(--bg-surface)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.setProperty('--row-bg', 'var(--bg-hover)'); }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.setProperty('--row-bg', 'var(--bg-surface)'); }}
                     >
                       {columns.map((c) => (
-                        <td key={c.key} className={cx('px-3 py-2.5', c.className)} style={{ textAlign: c.align || 'left', color: 'var(--text-primary)' }}>
+                        <td
+                          key={c.key}
+                          className={cx('px-3 py-2.5', c.className)}
+                          style={{
+                            textAlign: c.align || 'left', color: 'var(--text-primary)',
+                            ...(c.sticky === 'right'
+                              ? { position: 'sticky', right: 0, zIndex: 1, background: 'var(--row-bg)', borderLeft: '1px solid var(--border)' }
+                              : {}),
+                          }}
+                        >
                           {c.render ? c.render(row) : row[c.key]}
                         </td>
                       ))}

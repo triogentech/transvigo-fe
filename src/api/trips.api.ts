@@ -17,7 +17,12 @@ export const updateTrip = (id: string, body: Partial<CreateTripBody>) =>
 const STATUS_WIRE: Record<TripStatus, 'created' | 'in-transit' | 'completed'> = {
   created: 'created', in_transit: 'in-transit', completed: 'completed',
 };
-export const updateTripStatus = (id: string, status: TripStatus) =>
-  put<Trip>(`/api/trips/${id}/status`, { status: STATUS_WIRE[status] });
+// `actualEndTime` (ISO string) is honoured by the API when completing a trip;
+// when omitted the server stamps the current time.
+export const updateTripStatus = (id: string, status: TripStatus, actualEndTime?: string) =>
+  put<Trip>(`/api/trips/${id}/status`, {
+    status: STATUS_WIRE[status],
+    ...(actualEndTime ? { actualEndTime } : {}),
+  });
 
 export const deleteTrip = (id: string) => del<void>(`/api/trips/${id}`);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Search, ChevronDown, Check, Loader2 } from 'lucide-react';
 import { getSelectPage, type SelectEntity, type SelectOption } from '../api/select.api';
@@ -18,6 +18,13 @@ interface AsyncSelectProps {
   clearable?: boolean;
   clearLabel?: string;
   emptyLabel?: string;
+  /**
+   * Client-side mode: when provided, the combobox filters/paginates this
+   * preloaded list in memory instead of hitting the paginated `/api/select`
+   * endpoint. Use for entities whose backend doesn't support the paginated
+   * path — you still get search-as-you-type + infinite scroll.
+   */
+  staticOptions?: SelectOption[];
 }
 
 /**
@@ -38,7 +45,16 @@ export function AsyncSelect({
   clearable,
   clearLabel = 'None',
   emptyLabel = 'No results',
+  staticOptions,
 }: AsyncSelectProps) {
+  const clientMode = staticOptions !== undefined;
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+
+  // When rendered inside a Radix Dialog (modal), its scroll-lock (RemoveScroll)
+  // blocks wheel scrolling in content portaled to <body>. Portaling the popover
+  // into the dialog element instead keeps the options list scrollable.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -87,16 +103,43 @@ export function AsyncSelect({
   }, [entity, debounced, pageSize, status]);
 
   // (Re)load the first page whenever the popover opens or the search changes.
+  // Skipped entirely in client-side mode (no network).
   useEffect(() => {
-    if (!open) return;
+    if (!open || clientMode) return;
     void fetchPage(1, true);
-  }, [open, fetchPage]);
+  }, [open, fetchPage, clientMode]);
+
+  // ── Client-side mode: filter + incremental reveal over the preloaded list ──
+  const filtered = useMemo(() => {
+    if (!clientMode) return [];
+    const q = debounced.trim().toLowerCase();
+    return q ? staticOptions!.filter((o) => o.label.toLowerCase().includes(q)) : staticOptions!;
+  }, [clientMode, staticOptions, debounced]);
+
+  // Reset the reveal window when the search changes or the popover reopens.
+  useEffect(() => {
+    if (clientMode) setVisibleCount(pageSize);
+  }, [clientMode, debounced, open, pageSize]);
+
+  // Keep the trigger label in sync with the current value from the static list.
+  useEffect(() => {
+    if (clientMode && value) {
+      const found = staticOptions!.find((o) => o.value === value);
+      if (found && found.label !== selectedLabel) setSelectedLabel(found.label);
+    }
+  }, [clientMode, value, staticOptions, selectedLabel]);
+
+  const displayOptions = clientMode ? filtered.slice(0, visibleCount) : options;
+  const displayHasMore = clientMode ? filtered.length > visibleCount : hasMore;
+  const displayLoading = clientMode ? false : loading;
+  const displayError = clientMode ? null : error;
 
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!hasMore || loading) return;
+    if (!displayHasMore || displayLoading) return;
     const el = e.currentTarget;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 48) {
-      void fetchPage(page + 1, false);
+      if (clientMode) setVisibleCount((c) => c + pageSize);
+      else void fetchPage(page + 1, false);
     }
   };
 
@@ -108,6 +151,7 @@ export function AsyncSelect({
 
   const handleOpenChange = (o: boolean) => {
     setOpen(o);
+    if (o) setPortalContainer((triggerRef.current?.closest('[role="dialog"]') as HTMLElement) ?? null);
     if (!o) setSearch('');
   };
 
@@ -115,6 +159,7 @@ export function AsyncSelect({
     <Popover.Root open={open} onOpenChange={disabled ? undefined : handleOpenChange}>
       <Popover.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className="tv-input"
           disabled={disabled}
@@ -126,7 +171,7 @@ export function AsyncSelect({
           <ChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <Popover.Portal container={portalContainer ?? undefined}>
         <Popover.Content
           align="start"
           sideOffset={4}
@@ -155,19 +200,19 @@ export function AsyncSelect({
             {clearable && (
               <Row selected={!value} onClick={() => choose(undefined)} label={clearLabel} muted />
             )}
-            {options.map((o) => (
+            {displayOptions.map((o) => (
               <Row key={o.value} selected={o.value === value} onClick={() => choose(o)} label={o.label} />
             ))}
 
-            {loading && (
+            {displayLoading && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 8px', color: 'var(--text-muted)', fontSize: 12 }}>
                 <Loader2 size={14} className="animate-spin" /> Loading…
               </div>
             )}
-            {error && !loading && (
-              <div style={{ padding: '10px 8px', color: 'var(--danger)', fontSize: 12 }}>{error}</div>
+            {displayError && !displayLoading && (
+              <div style={{ padding: '10px 8px', color: 'var(--danger)', fontSize: 12 }}>{displayError}</div>
             )}
-            {!loading && !error && options.length === 0 && (
+            {!displayLoading && !displayError && displayOptions.length === 0 && (
               <div style={{ padding: '10px 8px', color: 'var(--text-dim)', fontSize: 12 }}>{emptyLabel}</div>
             )}
           </div>

@@ -25,7 +25,7 @@ const EMPTY_FORM: CreateCityBody = {
 };
 
 export default function CitiesPage() {
-  const { allCities, loading, error, refetch, createCity } = useCities();
+  const { allCities, loading, error, refetch, createCity, updateCity, deleteCity } = useCities();
   const [search, setSearch] = useState('');
   const rows = React.useMemo(
     () => (allCities as City[]).filter((c) => matchesSearch(c, ['name', 'cityCode', 'state', 'stateCode'], search)),
@@ -34,27 +34,64 @@ export default function CitiesPage() {
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CreateCityBody>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [delRow, setDelRow] = useState<City | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
 
   const set = (k: keyof CreateCityBody, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
 
   const openModal = () => {
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setOpen(true);
   };
 
+  const openEdit = (c: City) => {
+    setEditingId(c.id);
+    setForm({
+      name: c.name,
+      cityCode: c.cityCode,
+      state: c.state,
+      stateCode: c.stateCode,
+      country: c.country,
+      countryISOCode: c.countryISOCode,
+    });
+    setOpen(true);
+  };
+
   const submit = async () => {
+    if (!form.name.trim()) return toast.error('Enter a name');
     setSubmitting(true);
     try {
-      await createCity(form);
-      toast.success('City created');
+      if (editingId) {
+        await updateCity(editingId, form);
+        toast.success('City updated');
+      } else {
+        await createCity(form);
+        toast.success('City created');
+      }
       setOpen(false);
     } catch (e) {
       toast.error(errMessage(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!delRow) return;
+    setDelBusy(true);
+    try {
+      await deleteCity(delRow.id);
+      toast.success('City deleted');
+      setDelRow(null);
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally {
+      setDelBusy(false);
     }
   };
 
@@ -69,6 +106,16 @@ export default function CitiesPage() {
     },
     { key: 'state', header: 'State' },
     { key: 'country', header: 'Country' },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: City) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button className="btn-ghost" onClick={() => openEdit(row)}>Edit</button>
+          <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(row)}>Delete</button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -98,7 +145,7 @@ export default function CitiesPage() {
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Add City"
+        title={editingId ? 'Edit City' : 'Add City'}
         footer={
           <LoadingButton
             className="btn-brand"
@@ -179,6 +226,22 @@ export default function CitiesPage() {
               />
             </div>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!delRow}
+        onOpenChange={(v: boolean) => { if (!v) setDelRow(null); }}
+        title="Delete City"
+        footer={
+          <LoadingButton className="btn-brand" loading={delBusy} onClick={confirmDelete}
+            style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+            Delete
+          </LoadingButton>
+        }
+      >
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Delete <b>{delRow?.name}</b>? This can’t be undone. Records referencing this city will keep their data but lose the city reference.
         </div>
       </Modal>
     </div>

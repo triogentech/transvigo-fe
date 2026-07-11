@@ -65,10 +65,14 @@ export default function InvoicesPage() {
     return { onCreditCount: onCredit.length, onCreditAmt, total, count: allInvoices.length };
   }, [allInvoices]);
 
-  const rows = useMemo(
-    () => (allInvoices as SupplierInvoice[]).filter((i) => matchesSearch(i, ['refNumber', 'invoiceNumber'], search)),
-    [allInvoices, search],
-  );
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (allInvoices as SupplierInvoice[]).filter(
+      (i) =>
+        matchesSearch(i, ['refNumber', 'invoiceNumber'], search) ||
+        (!!q && (i.vehicle?.vehicleNumber?.toLowerCase().includes(q) ?? false)),
+    );
+  }, [allInvoices, search]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -147,7 +151,7 @@ export default function InvoicesPage() {
       </div>
 
       <div className="flex gap-3 flex-wrap items-center">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search invoice no or supplied #…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search invoice no, ref # or vehicle…" />
       </div>
 
       <DataTable columns={columns} data={rows} loading={loading} emptyLabel="No invoices found" pageSize={12} />
