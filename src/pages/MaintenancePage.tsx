@@ -7,6 +7,7 @@ import { errMessage } from '../api/client';
 import { shortDate, formatINR } from '../lib/utils.js';
 import type { CreateGarageLogBody, GarageLog } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -30,7 +31,15 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function MaintenancePage() {
-  const { garageLogs, filterOptions, summary, loading, error, refetch, setFilters } = useMaintenancePage();
+  const { garageLogs, filterOptions, summary, loading, error, refetch, filters, setFilters } = useMaintenancePage();
+
+  // Vehicle id → label, so an already-applied vehicle filter shows its number
+  // rather than a raw UUID before the combobox has loaded any page.
+  const vehicleNameById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (filterOptions?.vehicles ?? []).forEach((o) => m.set(o.value, o.label));
+    return m;
+  }, [filterOptions]);
   const { createGarageLog, uploadInvoice } = useGarageLogsActions();
   const toast = useToast();
 
@@ -168,10 +177,6 @@ export default function MaintenancePage() {
     );
   }
 
-  const vehicleOptions = [
-    { value: '', label: 'All Vehicles' },
-    ...(filterOptions?.vehicles ?? []),
-  ];
   const garageOptions = [
     { value: '', label: 'All Garages' },
     ...(filterOptions?.garages ?? []),
@@ -202,16 +207,19 @@ export default function MaintenancePage() {
       )}
 
       {/* Filter bar */}
-      {(vehicleOptions.length > 1 || garageOptions.length > 1) && (
-        <div className="flex gap-3 flex-wrap">
-          {vehicleOptions.length > 1 && (
-            <select
-              className="tv-input"
-              onChange={(e) => setFilters({ vehicleId: e.target.value || undefined, page: 1 })}
-            >
-              {vehicleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          )}
+      <div className="flex gap-3 flex-wrap">
+          <div style={{ minWidth: 200 }}>
+            <AsyncSelect
+              entity="vehicles"
+              value={(filters.vehicleId as string) ?? ''}
+              valueLabel={vehicleNameById.get(filters.vehicleId as string) ?? ''}
+              onChange={(v) => setFilters({ vehicleId: v || undefined, page: 1 })}
+              placeholder="All Vehicles"
+              clearable
+              clearLabel="All Vehicles"
+              emptyLabel="No vehicles found"
+            />
+          </div>
           {garageOptions.length > 1 && (
             <select
               className="tv-input"
@@ -221,7 +229,6 @@ export default function MaintenancePage() {
             </select>
           )}
         </div>
-      )}
 
       <DataTable
         columns={columns}

@@ -14,6 +14,7 @@ import {
 } from '../components/ui.jsx';
 import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../components/states.tsx';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect.tsx';
 import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
@@ -100,10 +101,6 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
     { value: '', label: 'All Drivers' },
     ...(allDrivers ?? []),
   ];
-  const VEHICLE_OPTIONS = [
-    { value: '', label: 'All Vehicles' },
-    ...(allVehicles ?? []),
-  ];
   const PROVIDER_OPTIONS = [
     { value: '', label: 'All Providers' },
     ...(allLoadProviders ?? []),
@@ -158,12 +155,15 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
 
       <div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vehicle</div>
-        <TVSelect
+        <AsyncSelect
+          entity="vehicles"
           value={local.vehicleId}
-          onValueChange={(v) => set('vehicleId', v)}
-          options={VEHICLE_OPTIONS}
+          valueLabel={(allVehicles ?? []).find((v) => v.value === local.vehicleId)?.label ?? ''}
+          onChange={(v) => set('vehicleId', v)}
           placeholder="All Vehicles"
-          className="w-full"
+          clearable
+          clearLabel="All Vehicles"
+          emptyLabel="No vehicles found"
         />
       </div>
 
@@ -203,7 +203,7 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
 }
 
 // ── CreateTripModal ──
-function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicles, allLoadProviders }) {
+function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadProviders }) {
   const toast = useToast();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -212,7 +212,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
   const [form, setForm] = useState({
     tripNumber: '',
     start: '', end: '', estStart: '', estEnd: '', distance: '', duration: '',
-    driverId: '', vehicleId: '', loadProviderId: '', freight: '', advance: '',
+    driverId: '', vehicleId: '', vehicleLabel: '', loadProviderId: '', freight: '', advance: '',
     vendorCode: '', vendorName: '',
   });
 
@@ -242,7 +242,8 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
   const updateLocation = (i, v) => setLocations((l) => l.map((x, idx) => idx === i ? v : x));
 
   const selectedDriver = (allDrivers ?? []).find((d) => d.value === form.driverId) || null;
-  const selectedVehicle = (allVehicles ?? []).find((v) => v.value === form.vehicleId) || null;
+  // Label comes from the picked option — the vehicle may not be in the preloaded list.
+  const selectedVehicle = form.vehicleId ? { label: form.vehicleLabel } : null;
   const selectedProvider = (allLoadProviders ?? []).find((p) => p.value === form.loadProviderId) || null;
 
   const inputStyle = {
@@ -328,10 +329,6 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
   const DRIVER_OPTIONS_MODAL = [
     { value: '', label: 'Select Driver' },
     ...(allDrivers ?? []),
-  ];
-  const VEHICLE_OPTIONS_MODAL = [
-    { value: '', label: 'Select Vehicle' },
-    ...(allVehicles ?? []),
   ];
   const PROVIDER_OPTIONS_MODAL = [
     { value: '', label: 'Select Provider' },
@@ -470,11 +467,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allVehicl
 
           <div>
             <label style={labelStyle}>Vehicle <span style={{ color: 'var(--danger)' }}>*</span></label>
-            <TVSelect
+            <AsyncSelect
+              entity="vehicles"
               value={form.vehicleId}
-              onValueChange={(v) => setF('vehicleId', v)}
+              valueLabel={form.vehicleLabel}
+              onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' }))}
               placeholder="Select Vehicle"
-              options={VEHICLE_OPTIONS_MODAL}
+              emptyLabel="No vehicles found"
             />
           </div>
 
@@ -1344,7 +1343,6 @@ export default function Trips() {
         }}
         createTrip={apiCreateTrip}
         allDrivers={allDrivers}
-        allVehicles={allVehicles}
         allLoadProviders={allLoadProviders}
       />
 

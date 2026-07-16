@@ -7,6 +7,7 @@ import { getSelect, type SelectOption } from '../api/select.api';
 import type { CreateInvoiceBody, InvoicePaymentStatus, SupplierInvoice } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -48,12 +49,10 @@ export default function InvoicesPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
-  const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [jobCards, setJobCards] = useState<SelectOption[]>([]);
   const [vendors, setVendors] = useState<SelectOption[]>([]);
 
   useEffect(() => {
-    void getSelect('vehicles').then(setVehicles).catch(() => undefined);
     void getSelect('job-cards').then(setJobCards).catch(() => undefined);
     void getSelect('spare-vendors').then(setVendors).catch(() => undefined);
   }, []);
@@ -172,10 +171,15 @@ export default function InvoicesPage() {
               </select>
             </Field>
             <Field label="Vehicle">
-              <select className="tv-input w-full" value={form.vehicleId} onChange={(e) => set('vehicleId', e.target.value)}>
-                <option value="">— none —</option>
-                {vehicles.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
-              </select>
+              <AsyncSelect
+                entity="vehicles"
+                value={form.vehicleId}
+                onChange={(v) => set('vehicleId', v)}
+                placeholder="— none —"
+                clearable
+                clearLabel="— none —"
+                emptyLabel="No vehicles found"
+              />
             </Field>
           </div>
           <Field label="Job Card">

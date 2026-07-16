@@ -8,6 +8,7 @@ import * as jobCardsApi from '../api/job-cards.api';
 import type { CreateJobCardBody, JobCard, JobCardStatus } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -34,6 +35,8 @@ interface FormState {
   jobCardNumber: string;
   jobCardDate: string;
   vehicleId: string;
+  /** Kept alongside the id so the job-card number can be re-suggested without a lookup list. */
+  vehicleLabel: string;
   driverComplaint: string;
   entryOdometer: string;
   garageId: string;
@@ -42,7 +45,7 @@ interface FormState {
 // Today's date as an ISO "YYYY-MM-DD" value for a <input type="date">.
 const todayISO = (): string => new Date().toISOString().slice(0, 10);
 
-const EMPTY_FORM: FormState = { jobCardNumber: '', jobCardDate: todayISO(), vehicleId: '', driverComplaint: '', entryOdometer: '', garageId: '' };
+const EMPTY_FORM: FormState = { jobCardNumber: '', jobCardDate: todayISO(), vehicleId: '', vehicleLabel: '', driverComplaint: '', entryOdometer: '', garageId: '' };
 
 // Build the suggested "DD/MM/YY-VehicleNumber" job-card number from an ISO date + vehicle label.
 const suggestJobCardNumber = (isoDate: string, vehicleLabel?: string): string => {
@@ -60,12 +63,10 @@ export default function JobCardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [garages, setGarages] = useState<SelectOption[]>([]);
   const [assignees, setAssignees] = useState<SelectOption[]>([]);
 
   useEffect(() => {
-    void getSelect('vehicles').then(setVehicles).catch(() => undefined);
     void getSelect('garages').then(setGarages).catch(() => undefined);
     void getSelect('assignees').then(setAssignees).catch(() => undefined);
   }, []);
@@ -93,20 +94,18 @@ export default function JobCardsPage() {
 
   // Re-suggest the job-card number from date + vehicle, unless the user has already
   // typed a value that differs from the current suggestion (i.e. edited it manually).
-  const setVehicle = (vehicleId: string) =>
+  const setVehicle = (vehicleId: string, vehicleLabel: string) =>
     setForm((f) => {
-      const label = vehicles.find((v) => v.value === vehicleId)?.label;
-      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, vehicles.find((v) => v.value === f.vehicleId)?.label);
+      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, f.vehicleLabel);
       const keepManual = f.jobCardNumber && f.jobCardNumber !== prevSuggestion;
-      return { ...f, vehicleId, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(f.jobCardDate, label) };
+      return { ...f, vehicleId, vehicleLabel, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(f.jobCardDate, vehicleLabel) };
     });
 
   const setDate = (jobCardDate: string) =>
     setForm((f) => {
-      const label = vehicles.find((v) => v.value === f.vehicleId)?.label;
-      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, label);
+      const prevSuggestion = suggestJobCardNumber(f.jobCardDate, f.vehicleLabel);
       const keepManual = f.jobCardNumber && f.jobCardNumber !== prevSuggestion;
-      return { ...f, jobCardDate, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(jobCardDate, label) };
+      return { ...f, jobCardDate, jobCardNumber: keepManual ? f.jobCardNumber : suggestJobCardNumber(jobCardDate, f.vehicleLabel) };
     });
 
   const openModal = () => {
@@ -235,12 +234,14 @@ export default function JobCardsPage() {
             </div>
             <div className="flex-1">
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Vehicle *</label>
-              <select className="tv-input w-full" value={form.vehicleId} onChange={(e) => setVehicle(e.target.value)}>
-                <option value="">Select vehicle…</option>
-                {vehicles.map((v) => (
-                  <option key={v.value} value={v.value}>{v.label}</option>
-                ))}
-              </select>
+              <AsyncSelect
+                entity="vehicles"
+                value={form.vehicleId}
+                valueLabel={form.vehicleLabel}
+                onChange={(v, opt) => setVehicle(v, opt?.label ?? '')}
+                placeholder="Select vehicle…"
+                emptyLabel="No vehicles found"
+              />
             </div>
           </div>
           <div>

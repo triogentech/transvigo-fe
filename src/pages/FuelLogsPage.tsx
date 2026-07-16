@@ -8,6 +8,7 @@ import { shortDate, formatINR } from '../lib/utils.js';
 import type { CreateFuelLogBody, FuelLog, FuelType } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -40,7 +41,7 @@ const FUEL_TYPE_OPTIONS = [
 ];
 
 export default function FuelLogsPage() {
-  const { fuelLogs, filterOptions, summary, loading, error, refetch, setFilters } = useFuelLogsPage();
+  const { fuelLogs, filterOptions, summary, loading, error, refetch, filters, setFilters } = useFuelLogsPage();
   const { createFuelLog } = useFuelLogsActions();
   const toast = useToast();
 
@@ -155,10 +156,6 @@ export default function FuelLogsPage() {
     );
   }
 
-  const vehicleOptions = [
-    { value: '', label: 'All Vehicles' },
-    ...(filterOptions?.vehicles ?? []),
-  ];
   const stationOptions = [
     { value: '', label: 'All Stations' },
     ...(filterOptions?.fuelStations ?? []),
@@ -197,14 +194,18 @@ export default function FuelLogsPage() {
       {/* Search + filter bar */}
       <div className="flex gap-3 flex-wrap items-center">
         <SearchInput value={search} onChange={setSearch} placeholder="Search fuel logs…" />
-        {vehicleOptions.length > 1 && (
-            <select
-              className="tv-input"
-              onChange={(e) => setFilters({ vehicleId: e.target.value || undefined, page: 1 })}
-            >
-              {vehicleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          )}
+        <div style={{ minWidth: 200 }}>
+            <AsyncSelect
+              entity="vehicles"
+              value={(filters.vehicleId as string) ?? ''}
+              valueLabel={vehicleNameById.get(filters.vehicleId as string) ?? ''}
+              onChange={(v) => setFilters({ vehicleId: v || undefined, page: 1 })}
+              placeholder="All Vehicles"
+              clearable
+              clearLabel="All Vehicles"
+              emptyLabel="No vehicles found"
+            />
+          </div>
           {stationOptions.length > 1 && (
             <select
               className="tv-input"

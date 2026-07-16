@@ -11,6 +11,7 @@ import type {
 } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -71,7 +72,6 @@ export default function SparePartsPage() {
   const [slipOpen, setSlipOpen] = useState(false);
   const [slip, setSlip] = useState<SlipForm>(EMPTY_SLIP);
   const [slipBusy, setSlipBusy] = useState(false);
-  const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [jobCards, setJobCards] = useState<SelectOption[]>([]);
   const [garages, setGarages] = useState<SelectOption[]>([]);
   const [vendors, setVendors] = useState<SelectOption[]>([]);
@@ -84,7 +84,6 @@ export default function SparePartsPage() {
   };
 
   useEffect(() => {
-    void getSelect('vehicles').then(setVehicles).catch(() => undefined);
     void getSelect('job-cards').then(setJobCards).catch(() => undefined);
     void getSelect('garages').then(setGarages).catch(() => undefined);
     void getSelect('spare-vendors').then(setVendors).catch(() => undefined);
@@ -365,10 +364,13 @@ export default function SparePartsPage() {
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <Field label="Vehicle *">
-              <select className="tv-input w-full" value={slip.vehicleId} onChange={(e) => setS('vehicleId', e.target.value)}>
-                <option value="">— select —</option>
-                {vehicles.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
-              </select>
+              <AsyncSelect
+                entity="vehicles"
+                value={slip.vehicleId}
+                onChange={(v) => setS('vehicleId', v)}
+                placeholder="— select —"
+                emptyLabel="No vehicles found"
+              />
             </Field>
             <Field label="Job Card">
               <select className="tv-input w-full" value={slip.jobCardId} onChange={(e) => setS('jobCardId', e.target.value)}>

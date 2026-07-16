@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTyres } from '../hooks/useTyres';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { matchesSearch } from '../lib/clientList';
-import { getSelect, type SelectOption } from '../api/select.api';
 import type { CreateTyreBody, CreateTyreMovementBody, Tyre, TyreMovementType, TyreStatus } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as UIns from '../components/ui.jsx';
@@ -49,13 +49,8 @@ export default function TyreHubPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [vehicles, setVehicles] = useState<SelectOption[]>([]);
   const [move, setMove] = useState<MoveState>(EMPTY_MOVE);
   const [moveBusy, setMoveBusy] = useState(false);
-
-  useEffect(() => {
-    void getSelect('vehicles').then(setVehicles).catch(() => undefined);
-  }, []);
 
   const rows = useMemo(
     () =>
@@ -232,10 +227,15 @@ export default function TyreHubPage() {
           </Field>
           <div className="flex gap-3">
             <Field label="Vehicle">
-              <select className="tv-input w-full" value={move.vehicleId} onChange={(e) => setMove((m) => ({ ...m, vehicleId: e.target.value }))}>
-                <option value="">— none —</option>
-                {vehicles.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
-              </select>
+              <AsyncSelect
+                entity="vehicles"
+                value={move.vehicleId}
+                onChange={(v) => setMove((m) => ({ ...m, vehicleId: v }))}
+                placeholder="— none —"
+                clearable
+                clearLabel="— none —"
+                emptyLabel="No vehicles found"
+              />
             </Field>
             <Field label="Position"><input className="tv-input w-full" value={move.position} onChange={(e) => setMove((m) => ({ ...m, position: e.target.value }))} placeholder="FL / RL1 …" /></Field>
           </div>
