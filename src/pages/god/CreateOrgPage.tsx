@@ -772,6 +772,12 @@ function Step4({ f, onCreate, creating, createError, creationLog, result }: Step
           ))}
         </div>
 
+        {result.emailSent === false && (
+          <div role="alert" style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#fca5a5' }}>
+            The organisation was created, but the welcome email could not be sent. Send the credentials below to {result.adminUser.email} yourself.
+          </div>
+        )}
+
         {/* Temp password */}
         <div style={{ background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.4)', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
           <p style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600, marginBottom: 8 }}>

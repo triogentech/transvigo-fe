@@ -106,6 +106,8 @@ export interface CreateOrgResult {
   organisation: OrgWithStats;
   adminUser: { id: string; email: string; username: string };
   tempPassword: string;
+  /** false => the welcome email failed; give the temp password to the admin yourself. */
+  emailSent?: boolean;
 }
 
 export type GodPaginated<T> = PaginatedResponse<T>;
