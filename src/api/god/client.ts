@@ -82,6 +82,7 @@ god.interceptors.response.use(
 export const gGet = <T>(url: string, params?: object) => god.get<T>(url, { params }).then((r) => r.data);
 export const gPost = <T>(url: string, data?: object, cfg?: AxiosRequestConfig) => god.post<T>(url, data, cfg).then((r) => r.data);
 export const gPatch = <T>(url: string, data?: object) => god.patch<T>(url, data).then((r) => r.data);
+export const gPut = <T>(url: string, data?: object) => god.put<T>(url, data).then((r) => r.data);
 export const gDel = <T>(url: string, data?: object) => god.delete<T>(url, { data }).then((r) => r.data);
 
 interface BackendPage<T> { data: T[]; pagination: { page: number; pageSize: number; total: number; pageCount: number } }

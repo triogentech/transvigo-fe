@@ -28,6 +28,7 @@ import ActiveImpersonationsPage from './pages/god/ActiveImpersonationsPage';
 import PlatformAdminsPage from './pages/god/PlatformAdminsPage';
 import OnboardingRequestsPage from './pages/god/OnboardingRequestsPage';
 import PlatformAuditPage from './pages/god/PlatformAuditPage';
+import AppVersionPage from './pages/god/AppVersionPage';
 
 import Dashboard from './pages/Dashboard.jsx';
 import Trips from './pages/Trips.jsx';
@@ -105,7 +106,7 @@ export default function App() {
                     <RequirePlatformRole roles={['SUPER_ADMIN']}><PlatformAdminsPage /></RequirePlatformRole>
                   } />
                   <Route path="settings" element={
-                    <RequirePlatformRole roles={['SUPER_ADMIN']}><div className="text-center py-24" style={{ color: 'var(--text-secondary)' }}>Platform settings — coming soon</div></RequirePlatformRole>
+                    <RequirePlatformRole roles={['SUPER_ADMIN']}><AppVersionPage /></RequirePlatformRole>
                   } />
                 </Route>
               </Route>
