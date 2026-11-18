@@ -199,10 +199,18 @@ export default function MaintenancePage() {
       {/* Summary cards */}
       {summary && Object.keys(summary).length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          {Object.entries(summary).map(([key, val]) => (
-            <div key={key} className="tv-card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{key}</div>
-              <div className="font-mono" style={{ fontSize: 22, marginTop: 6, color: 'var(--text-primary)' }}>{formatINR(val as number)}</div>
+          {[
+            { label: 'Vendor bills raised', value: formatINR(invoiceTotals.billRaised) },
+            { label: 'Vendor bills paid', value: formatINR(invoiceTotals.billPaid) },
+            { label: 'Vendor bills pending', value: formatINR(Math.max(0, invoiceTotals.billRaised - invoiceTotals.billPaid)) },
+            { label: 'Maintenance invoices raised', value: formatINR(summary.totalInvoiceRaised ?? 0) },
+            { label: 'Maintenance invoices passed', value: formatINR(summary.totalInvoicePassed ?? 0) },
+            { label: 'Open maintenance logs', value: String(summary.activeGarageLogs ?? 0) },
+            { label: 'Tyre fitments this month', value: String(summary.tyreFitmentsThisMonth ?? 0) },
+          ].map((t) => (
+            <div key={t.label} className="tv-card" style={{ padding: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t.label}</div>
+              <div className="font-mono" style={{ fontSize: 22, marginTop: 6, color: 'var(--text-primary)' }}>{t.value}</div>
             </div>
           ))}
         </div>

@@ -247,7 +247,9 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   const selectedProvider = (allLoadProviders ?? []).find((p) => p.value === form.loadProviderId) || null;
   // Options are labelled "Name · CODE"; show the code on its own.
   const providerCode = selectedProvider ? (selectedProvider.label.split(' · ')[1] ?? '') : '';
+  const [vendorError, setVendorError] = useState(false);
   const needVendor = () => {
+    setVendorError(true);
     toast({ title: 'Select the vendor this trip is for', description: 'Every trip needs a vendor (load provider).', color: 'var(--danger)' });
   };
 
@@ -485,10 +487,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             <label style={labelStyle}>Vendor (load provider) <span style={{ color: 'var(--danger)' }}>*</span></label>
             <TVSelect
               value={form.loadProviderId}
-              onValueChange={(v) => setF('loadProviderId', v)}
+              onValueChange={(v) => { setF('loadProviderId', v); setVendorError(false); }}
               placeholder="Select vendor"
               options={PROVIDER_OPTIONS_MODAL}
             />
+            {vendorError && !form.loadProviderId && (
+              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the vendor this trip is for.</div>
+            )}
             {form.loadProviderId && selectedProvider && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
                 Vendor code: <span className="font-mono">{providerCode}</span>. The name and code are saved on the trip from the vendor.
