@@ -5,6 +5,7 @@ import { errMessage } from '../api/client';
 import { matchesSearch } from '../lib/clientList';
 import { getSelect, type SelectOption } from '../api/select.api';
 import * as jobCardsApi from '../api/job-cards.api';
+import type { JobCardMessage } from '../api/job-cards.api';
 import type { CreateJobCardBody, JobCard, JobCardStatus } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
@@ -17,6 +18,29 @@ const PageHeader: React.FC<any> = UI.PageHeader;
 const DataTable: React.FC<any> = UI.DataTable;
 const Modal: React.FC<any> = UI.Modal;
 const Pill: React.FC<any> = UI.Pill;
+
+const PRIORITY_META: Record<string, { label: string; color: string }> = {
+  critical: { label: 'Critical', color: '#DC2626' },
+  high: { label: 'High', color: '#EA580C' },
+  medium: { label: 'Medium', color: '#D97706' },
+  low: { label: 'Low', color: 'var(--text-muted)' },
+};
+const RESPONSE_META: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Pending', color: '#D97706' },
+  acknowledged: { label: 'Acknowledged', color: '#2563EB' },
+  resolved: { label: 'Resolved', color: '#16A34A' },
+};
+
+/** "Reply due in 25m" / "Overdue by 1h 5m" / "Replied on time" for a driver report's acknowledgement SLA. */
+function slaLabel(sla: JobCard['sla']): { text: string; color: string } | null {
+  if (!sla) return null;
+  if (sla.status === 'met') return { text: 'Replied on time', color: '#16A34A' };
+  if (sla.status === 'missed') return { text: 'Replied late', color: '#DC2626' };
+  const left = (new Date(sla.dueAt).getTime() - Date.now()) / 60000;
+  const m = Math.abs(Math.round(left));
+  const d = m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  return left < 0 ? { text: `Overdue by ${d}`, color: '#DC2626' } : { text: `Reply due in ${d}`, color: left <= 15 ? '#D97706' : '#2563EB' };
+}
 
 const STATUSES: JobCardStatus[] = ['open', 'in_progress', 'quality_check', 'closed', 'cancelled'];
 
@@ -56,6 +80,32 @@ const suggestJobCardNumber = (isoDate: string, vehicleLabel?: string): string =>
 
 export default function JobCardsPage() {
   const { allJobCards, loading, error, refetch, createJobCard, changeStatus } = useJobCards();
+  // Conversation with the driver on a driver-reported job card.
+  const [chat, setChat] = useState<JobCard | null>(null);
+  const [messages, setMessages] = useState<JobCardMessage[]>([]);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const openChat = async (jc: JobCard) => {
+    setChat(jc);
+    setMessages([]);
+    try { setMessages(await jobCardsApi.getJobCardMessages(jc.id)); } catch (e) { toast.error(errMessage(e)); }
+  };
+  const sendMessage = async () => {
+    if (!chat || !draft.trim()) return;
+    setSending(true);
+    try {
+      const r = await jobCardsApi.postJobCardMessage(chat.id, draft.trim());
+      setDraft('');
+      setChat(r.jobCard);
+      setMessages(await jobCardsApi.getJobCardMessages(chat.id));
+      if (r.acknowledgedNow) toast.success('Sent. The report is now acknowledged.');
+      refetch();
+    } catch (e) { toast.error(errMessage(e)); } finally { setSending(false); }
+  };
+  const resolveChat = async () => {
+    if (!chat) return;
+    try { setChat(await jobCardsApi.resolveJobCard(chat.id)); toast.success('Marked as resolved'); refetch(); } catch (e) { toast.error(errMessage(e)); }
+  };
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
@@ -155,6 +205,26 @@ export default function JobCardsPage() {
       header: 'Status',
       render: (r: JobCard) => <Pill color={STATUS_META[r.status].color}>{STATUS_META[r.status].label}</Pill>,
     },
+    { key: 'entryOdometer', header: 'Odometer', render: (r: JobCard) => <span className="font-mono">{r.entryOdometer ? `${Number(r.entryOdometer).toLocaleString('en-IN')} km` : '—'}</span> },
+    {
+      key: 'priority',
+      header: 'Priority',
+      render: (r: JobCard) => (r.source === 'driver_report' && r.priority ? <Pill color={PRIORITY_META[r.priority]?.color}>{PRIORITY_META[r.priority]?.label}</Pill> : '—'),
+    },
+    {
+      key: 'responseStatus',
+      header: 'Driver report',
+      render: (r: JobCard) => {
+        if (r.source !== 'driver_report' || !r.responseStatus) return '—';
+        const sla = r.responseStatus === 'pending' || r.sla ? slaLabel(r.sla) : null;
+        return (
+          <div>
+            <Pill color={RESPONSE_META[r.responseStatus]?.color}>{RESPONSE_META[r.responseStatus]?.label}</Pill>
+            {sla && <div style={{ fontSize: 11, marginTop: 3, color: sla.color }}>{sla.text}</div>}
+          </div>
+        );
+      },
+    },
     { key: 'driverComplaint', header: 'Complaint', render: (r: JobCard) => <span title={r.driverComplaint}>{r.driverComplaint.length > 40 ? `${r.driverComplaint.slice(0, 40)}…` : r.driverComplaint}</span> },
     { key: 'garage', header: 'Garage', render: (r: JobCard) => r.garage?.name ?? '—' },
     { key: 'totalJobCost', header: 'Cost', render: (r: JobCard) => inr(r.totalJobCost) },
@@ -174,6 +244,15 @@ export default function JobCardsPage() {
           ))}
         </select>
       ),
+    },
+    {
+      key: 'chat',
+      header: 'Driver chat',
+      render: (r: JobCard) => (r.source === 'driver_report' ? (
+        <button className="btn-ghost" style={{ fontSize: 12, padding: '3px 10px' }} onClick={(e) => { e.stopPropagation(); void openChat(r); }}>
+          Open{r._count?.messages ? ` (${r._count.messages})` : ''}
+        </button>
+      ) : '—'),
     },
     {
       key: 'actions',
@@ -214,6 +293,43 @@ export default function JobCardsPage() {
       </div>
 
       <DataTable columns={columns} data={rows} loading={loading} emptyLabel="No job cards found" pageSize={12} />
+
+      <Modal
+        open={!!chat}
+        onOpenChange={(o: boolean) => { if (!o) setChat(null); }}
+        title={chat ? `${chat.jobCardNumber} · conversation with the driver` : 'Conversation'}
+        footer={chat && chat.responseStatus !== 'resolved' ? (
+          <div className="flex gap-2 w-full">
+            <button className="btn-ghost" onClick={resolveChat}>Mark resolved</button>
+            <div style={{ flex: 1 }} />
+            <LoadingButton className="btn-brand" loading={sending} onClick={sendMessage}>Send</LoadingButton>
+          </div>
+        ) : undefined}
+      >
+        {chat && (
+          <div className="flex flex-col gap-3">
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {chat.vehicle?.vehicleNumber} · {Number(chat.entryOdometer).toLocaleString('en-IN')} km · {chat.driverComplaint}
+            </div>
+            <div className="flex flex-col gap-2" style={{ maxHeight: 280, overflowY: 'auto' }}>
+              {messages.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No messages yet. Your first message acknowledges the report.</div>}
+              {messages.map((m) => (
+                <div key={m.id} style={{ alignSelf: m.fromDriver ? 'flex-start' : 'flex-end', maxWidth: '85%' }}>
+                  <div style={{ background: m.fromDriver ? 'var(--navy-light)' : 'var(--teal)', color: m.fromDriver ? 'var(--text-primary)' : '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 13 }}>{m.body}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2, textAlign: m.fromDriver ? 'left' : 'right' }}>
+                    {m.fromDriver ? 'Driver' : m.senderName} · {new Date(m.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {chat.responseStatus === 'resolved' ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Resolved. The conversation is closed.</div>
+            ) : (
+              <textarea className="tv-input w-full" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Write a message to the driver" />
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={open}

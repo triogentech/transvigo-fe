@@ -411,11 +411,18 @@ export interface JobCard {
   entryTime: string;
   closedTime?: string | null;
   isLoadReady: boolean;
+  /** Driver maintenance reports: the priority the driver picked, and the reply lifecycle (the SLA is measured to acknowledgement). */
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  source?: 'ops' | 'driver_report';
+  responseStatus?: 'pending' | 'acknowledged' | 'resolved';
+  acknowledgedAt?: string | null;
+  resolvedAt?: string | null;
+  sla?: { dueAt: string; status: 'on_track' | 'at_risk' | 'breached' | 'met' | 'missed'; minutesLeft: number | null } | null;
   linkedTicketId?: string | null;
   totalPartsCost: string | number;
   totalLabourCost: string | number;
   totalJobCost: string | number;
-  _count?: { spareIssueSlips: number };
+  _count?: { spareIssueSlips: number; messages?: number };
   createdAt: string;
 }
 
@@ -530,6 +537,12 @@ export interface SupplierInvoice {
   invoiceNumber: string;
   vendorId?: string | null;
   vendor?: { id: string; vendorName: string } | null;
+  /** The billing vendor (spare parts vendor or garage) with its code. */
+  supplier?: { id: string; type: 'spare_parts' | 'garage'; name: string; vendorCode: string } | null;
+  paymentMode?: 'cash' | 'credit';
+  billRaisedAmount?: number;
+  billPaidAmount?: number;
+  settlement?: 'paid' | 'pending';
   vehicleId?: string | null;
   vehicle?: { id: string; vehicleNumber: string } | null;
   jobCardId?: string | null;
@@ -548,6 +561,8 @@ export interface CreateInvoiceBody {
   vendorId?: string | null;
   totalAmount?: number;
   paymentStatus?: InvoicePaymentStatus;
+  paymentMode?: 'cash' | 'credit';
+  paidAmount?: number;
   invoiceDate?: string | null;
   notes?: string | null;
 }
