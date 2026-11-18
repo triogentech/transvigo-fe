@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { getMaintenancePage } from '../../api/pages.api';
 import { errMessage } from '../../api/client';
 import { usePageCacheListener } from '../usePageCache';
-import type { PageMeta } from '../../api/pages.api';
+import type { PageMeta, VendorBillRow } from '../../api/pages.api';
 import type { GarageLog, TyreLog } from '../../types/api.types';
 import type { SelectOption } from '../../api/select.api';
 
-type MaintenanceMeta = { garageLogsMeta: PageMeta; tyreLogsMeta: PageMeta };
+type MaintenanceMeta = { garageLogsMeta: PageMeta; tyreLogsMeta: PageMeta; invoicesMeta?: PageMeta };
 type MaintenanceFilterOptions = { vehicles: SelectOption[]; garages: SelectOption[] };
 
 const PAGE_PATH = '/api/pages/maintenance';
@@ -14,6 +14,8 @@ const PAGE_PATH = '/api/pages/maintenance';
 export function useMaintenancePage(initial?: Record<string, unknown>): {
   garageLogs: GarageLog[];
   tyreLogs: TyreLog[];
+  invoices: VendorBillRow[];
+  invoiceTotals: { billRaised: number; billPaid: number };
   meta: MaintenanceMeta | undefined;
   filterOptions: MaintenanceFilterOptions | undefined;
   summary: Record<string, number>;
@@ -26,6 +28,8 @@ export function useMaintenancePage(initial?: Record<string, unknown>): {
   const [data, setData] = useState<{
     garageLogs: GarageLog[];
     tyreLogs: TyreLog[];
+    invoices: VendorBillRow[];
+    invoiceTotals: { billRaised: number; billPaid: number };
     meta: MaintenanceMeta;
     filters: MaintenanceFilterOptions;
     summary: Record<string, number>;
@@ -56,6 +60,8 @@ export function useMaintenancePage(initial?: Record<string, unknown>): {
   return {
     garageLogs: data?.garageLogs ?? [],
     tyreLogs: data?.tyreLogs ?? [],
+    invoices: data?.invoices ?? [],
+    invoiceTotals: data?.invoiceTotals ?? { billRaised: 0, billPaid: 0 },
     meta: data?.meta,
     filterOptions: data?.filters,
     summary: data?.summary ?? {},

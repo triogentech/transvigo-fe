@@ -245,6 +245,11 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   // Label comes from the picked option — the vehicle may not be in the preloaded list.
   const selectedVehicle = form.vehicleId ? { label: form.vehicleLabel } : null;
   const selectedProvider = (allLoadProviders ?? []).find((p) => p.value === form.loadProviderId) || null;
+  // Options are labelled "Name · CODE"; show the code on its own.
+  const providerCode = selectedProvider ? (selectedProvider.label.split(' · ')[1] ?? '') : '';
+  const needVendor = () => {
+    toast({ title: 'Select the vendor this trip is for', description: 'Every trip needs a vendor (load provider).', color: 'var(--danger)' });
+  };
 
   const inputStyle = {
     background: 'var(--navy-base)',
@@ -268,6 +273,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   }
 
   async function handleConfirm() {
+    if (!form.loadProviderId) { needVendor(); setStep(2); return; }
     setSubmitting(true);
     try {
       const body = {
@@ -280,11 +286,9 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
         totalTripTimeMinutes: form.duration ? Math.round(Number(form.duration) * 60) : 0,
         freightTotalAmount: Number(form.freight) || 0,
         advanceAmount: form.advance ? Number(form.advance) : undefined,
-        vendorCode: form.vendorCode || undefined,
-        vendorName: form.vendorName || undefined,
         driverId: form.driverId || undefined,
         vehicleId: form.vehicleId || undefined,
-        loadProviderId: form.loadProviderId || undefined,
+        loadProviderId: form.loadProviderId,
         isTouchingLocationAvailable: touchingLocations,
         touchingLocations: touchingLocations
           ? locations.filter(Boolean).map((name, i) => ({ name, sequence: i + 1 }))
@@ -349,7 +353,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             </button>
           )}
           {step < 3 ? (
-            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => setStep((s) => s + 1)}>
+            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => { if (step === 2 && !form.loadProviderId) { needVendor(); return; } setStep((s) => s + 1); }}>
               Next
             </button>
           ) : (
@@ -478,13 +482,18 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
           </div>
 
           <div>
-            <label style={labelStyle}>Load Provider</label>
+            <label style={labelStyle}>Vendor (load provider) <span style={{ color: 'var(--danger)' }}>*</span></label>
             <TVSelect
               value={form.loadProviderId}
               onValueChange={(v) => setF('loadProviderId', v)}
-              placeholder="Select Provider"
+              placeholder="Select vendor"
               options={PROVIDER_OPTIONS_MODAL}
             />
+            {form.loadProviderId && selectedProvider && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                Vendor code: <span className="font-mono">{providerCode}</span>. The name and code are saved on the trip from the vendor.
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -495,17 +504,6 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             <div>
               <label style={labelStyle}>Advance (₹)</label>
               <input type="number" style={inputStyle} placeholder="0" value={form.advance} onChange={(e) => setF('advance', e.target.value)} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Vendor Code <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>(optional)</span></label>
-              <input style={inputStyle} placeholder="e.g. ML-2026-001" value={form.vendorCode} onChange={(e) => setF('vendorCode', e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Vendor Name <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>(optional)</span></label>
-              <input style={inputStyle} placeholder="e.g. Acme Freight" value={form.vendorName} onChange={(e) => setF('vendorName', e.target.value)} />
             </div>
           </div>
         </div>
@@ -573,9 +571,9 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
                 </div>
               </div>
             </div>
-            {form.vendorCode && (
+            {selectedProvider && (
               <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                Vendor: {form.vendorCode}{form.vendorName ? ` — ${form.vendorName}` : ''}
+                Vendor: {selectedProvider.label}
               </div>
             )}
           </div>
@@ -759,7 +757,7 @@ function TripDetailModal({ tripId, open, onOpenChange }) {
                   </div>
                   {trip.loadProvider && (
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)' }}>
-                      Provider: {trip.loadProvider.name}
+                      Vendor: {trip.loadProvider.name}{trip.vendorCode ? <span className="font-mono"> · {trip.vendorCode}</span> : null}
                     </div>
                   )}
                   <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-dim)' }}>
@@ -785,6 +783,47 @@ function TripDetailModal({ tripId, open, onOpenChange }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Trip capture: what the driver recorded on the phone when starting / completing */}
+                {(trip.actualStartTime || trip.startOdometer != null || trip.endOdometer != null) && (() => {
+                  const when = (v) => (v ? new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
+                  const km = (v) => (v != null ? `${Number(v).toLocaleString('en-IN')} km` : '—');
+                  const map = (lat, lng) => (lat != null && lng != null ? `https://www.google.com/maps?q=${lat},${lng}` : null);
+                  const ran = trip.startOdometer != null && trip.endOdometer != null ? trip.endOdometer - trip.startOdometer : null;
+                  const hours = trip.actualStartTime && trip.actualEndTime ? (new Date(trip.actualEndTime) - new Date(trip.actualStartTime)) / 3600000 : null;
+                  const allocated = trip.totalTripTimeMinutes ? trip.totalTripTimeMinutes / 60 : (new Date(trip.estimatedEndTime) - new Date(trip.estimatedStartTime)) / 3600000;
+                  const Side = ({ title, time, odo, photo, lat, lng }) => (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 3 }}>{when(time)}</div>
+                      <div className="font-mono" style={{ fontSize: 13, color: 'var(--teal)', marginTop: 2 }}>{km(odo)}</div>
+                      {map(lat, lng) && <a href={map(lat, lng)} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--teal)' }}>View location</a>}
+                      {photo && (
+                        <a href={photo} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 6 }}>
+                          <img src={photo} alt={`${title} odometer`} style={{ width: '100%', maxHeight: 90, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)' }} />
+                        </a>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="tv-card-flat" style={{ padding: 14 }}>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', marginBottom: 8 }}>Trip capture (driver app)</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <Side title="Started" time={trip.actualStartTime} odo={trip.startOdometer} photo={trip.startOdometerPhotoUrl} lat={trip.startLatitude} lng={trip.startLongitude} />
+                        <Side title="Completed" time={trip.actualEndTime} odo={trip.endOdometer} photo={trip.endOdometerPhotoUrl} lat={trip.endLatitude} lng={trip.endLongitude} />
+                      </div>
+                      {(ran != null || hours != null) && (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)' }}>
+                          {ran != null && <>Distance run <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{km(ran)}</span></>}
+                          {ran != null && hours != null && ' · '}
+                          {hours != null && (
+                            <>Took <span className="font-mono" style={{ color: hours > allocated ? 'var(--danger)' : 'var(--text-primary)' }}>{hours.toFixed(1)} h</span> of {allocated.toFixed(1)} h allocated{hours > allocated ? ' (overtime)' : ''}</>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </TabsPrimitive.Content>

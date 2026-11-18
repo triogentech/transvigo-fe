@@ -141,13 +141,15 @@ export interface CreateStaffBody {
 // ── Load Provider ──
 export interface LoadProvider {
   id: string; orgId: string; cityId?: string;
-  name: string; shortName?: string;
+  name: string; shortName?: string; vendorCode: string;
   countryDialCode: string; contactNumber: string; isActive: boolean;
   city?: City; createdAt: string; updatedAt: string;
 }
 export interface CreateLoadProviderBody {
   name: string; shortName?: string; countryDialCode?: string;
   contactNumber: string; isActive?: boolean; cityId?: string;
+  /** Optional: your own vendor code. Left out, one is generated (LP-0001). */
+  vendorCode?: string;
 }
 
 // ── Trip ──
@@ -231,10 +233,15 @@ export interface CreateFuelLogBody {
 // ── Garage ──
 export interface Garage {
   id: string; orgId: string; cityId?: string;
-  name: string; isActive: boolean; city?: City;
+  name: string; vendorCode: string; contactPerson?: string; contactNumber?: string; notes?: string;
+  isActive: boolean; city?: City;
   createdAt: string; updatedAt: string;
 }
-export interface CreateGarageBody { name: string; isActive?: boolean; cityId?: string }
+export interface CreateGarageBody {
+  name: string; isActive?: boolean; cityId?: string;
+  /** Optional: your own vendor code. Left out, one is generated (WS-0001). */
+  vendorCode?: string; contactPerson?: string; contactNumber?: string; notes?: string;
+}
 
 // ── Garage Log ──
 export interface GarageLog {

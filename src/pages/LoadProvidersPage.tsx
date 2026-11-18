@@ -18,6 +18,7 @@ const TVSwitch: React.FC<any> = UI.TVSwitch;
 
 interface FormState {
   name: string;
+  vendorCode: string;
   shortName: string;
   contactNumber: string;
   isActive: boolean;
@@ -25,6 +26,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   name: '',
+  vendorCode: '',
   shortName: '',
   contactNumber: '',
   isActive: true,
@@ -34,7 +36,7 @@ export default function LoadProvidersPage() {
   const { allLoadProviders, loading, error, refetch, createLoadProvider, updateLoadProvider, deleteLoadProvider } = useLoadProviders();
   const [search, setSearch] = useState('');
   const rows = React.useMemo(
-    () => (allLoadProviders as LoadProvider[]).filter((lp) => matchesSearch(lp, ['name', 'shortName', 'contactNumber'], search)),
+    () => (allLoadProviders as LoadProvider[]).filter((lp) => matchesSearch(lp, ['name', 'shortName', 'vendorCode', 'contactNumber'], search)),
     [allLoadProviders, search],
   );
   const toast = useToast();
@@ -59,6 +61,7 @@ export default function LoadProvidersPage() {
     setEditingId(lp.id);
     setForm({
       name: lp.name,
+      vendorCode: lp.vendorCode ?? '',
       shortName: lp.shortName ?? '',
       contactNumber: lp.contactNumber ?? '',
       isActive: lp.isActive,
@@ -72,6 +75,7 @@ export default function LoadProvidersPage() {
     try {
       const body: CreateLoadProviderBody = {
         name: form.name,
+        vendorCode: form.vendorCode.trim() || undefined,
         shortName: form.shortName || undefined,
         contactNumber: form.contactNumber,
         isActive: form.isActive,
@@ -106,6 +110,11 @@ export default function LoadProvidersPage() {
   };
 
   const columns = [
+    {
+      key: 'vendorCode',
+      header: 'Vendor Code',
+      render: (row: { vendorCode?: string }) => <span className="font-mono">{row.vendorCode ?? '—'}</span>,
+    },
     { key: 'name', header: 'Name' },
     { key: 'shortName', header: 'Short Name' },
     {
@@ -187,6 +196,17 @@ export default function LoadProvidersPage() {
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="Provider name"
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              Vendor Code
+            </label>
+            <input
+              className="tv-input w-full font-mono"
+              value={form.vendorCode}
+              onChange={(e) => set('vendorCode', e.target.value)}
+              placeholder={editingId ? '' : 'Leave blank to generate (LP-0001…)'}
             />
           </div>
           <div>
