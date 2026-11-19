@@ -311,6 +311,12 @@ export default function JobCardsPage() {
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {chat.vehicle?.vehicleNumber} · {Number(chat.entryOdometer).toLocaleString('en-IN')} km · {chat.driverComplaint}
             </div>
+            {chat.entryOdometerPhotoUrl && (
+              <a href={chat.entryOdometerPhotoUrl} target="_blank" rel="noreferrer" title="Open the odometer photo">
+                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', marginBottom: 4 }}>Odometer photo</div>
+                <img src={chat.entryOdometerPhotoUrl} alt="Odometer" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+              </a>
+            )}
             <div className="flex flex-col gap-2" style={{ maxHeight: 280, overflowY: 'auto' }}>
               {messages.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No messages yet. Your first message acknowledges the report.</div>}
               {messages.map((m) => (

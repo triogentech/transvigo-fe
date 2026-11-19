@@ -18,6 +18,7 @@ import { AsyncSelect } from '../components/AsyncSelect.tsx';
 import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
+import { getSelect, clearSelectCache } from '../api/select.api.ts';
 import { createTrip as apiCreateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip } from '../api/trips.api.ts';
 import { errMessage } from '../api/client.ts';
 
@@ -248,9 +249,26 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   // Options are labelled "Name · CODE"; show the code on its own.
   const providerCode = selectedProvider ? (selectedProvider.label.split(' · ')[1] ?? '') : '';
   const [vendorError, setVendorError] = useState(false);
+  const [assignError, setAssignError] = useState(false);
+  // Only drivers who are not already on a trip in transit can be picked.
+  const [freeDrivers, setFreeDrivers] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    clearSelectCache('drivers');
+    getSelect('drivers', { status: 'available,assigned' }).then(setFreeDrivers).catch(() => setFreeDrivers(null));
+  }, [open]);
   const needVendor = () => {
     setVendorError(true);
     toast({ title: 'Select the vendor this trip is for', description: 'Every trip needs a vendor (load provider).', color: 'var(--danger)' });
+  };
+  const needAssignment = () => {
+    setAssignError(true);
+    toast({ title: 'Select a driver and a vehicle', description: 'A trip must have both a driver and a vehicle.', color: 'var(--danger)' });
+  };
+  const assignmentOk = () => {
+    if (!form.driverId || !form.vehicleId) { needAssignment(); return false; }
+    if (!form.loadProviderId) { needVendor(); return false; }
+    return true;
   };
 
   const inputStyle = {
@@ -275,7 +293,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   }
 
   async function handleConfirm() {
-    if (!form.loadProviderId) { needVendor(); setStep(2); return; }
+    if (!assignmentOk()) { setStep(2); return; }
     setSubmitting(true);
     try {
       const body = {
@@ -334,7 +352,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
 
   const DRIVER_OPTIONS_MODAL = [
     { value: '', label: 'Select Driver' },
-    ...(allDrivers ?? []),
+    ...(freeDrivers ?? allDrivers ?? []),
   ];
   const PROVIDER_OPTIONS_MODAL = [
     { value: '', label: 'Select Provider' },
@@ -355,7 +373,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             </button>
           )}
           {step < 3 ? (
-            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => { if (step === 2 && !form.loadProviderId) { needVendor(); return; } setStep((s) => s + 1); }}>
+            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => { if (step === 2 && !assignmentOk()) return; setStep((s) => s + 1); }}>
               Next
             </button>
           ) : (
@@ -465,10 +483,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             <label style={labelStyle}>Driver <span style={{ color: 'var(--danger)' }}>*</span></label>
             <TVSelect
               value={form.driverId}
-              onValueChange={(v) => setF('driverId', v)}
+              onValueChange={(v) => { setF('driverId', v); setAssignError(false); }}
               placeholder="Select Driver"
               options={DRIVER_OPTIONS_MODAL}
             />
+            {assignError && !form.driverId && (
+              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the driver for this trip.</div>
+            )}
           </div>
 
           <div>
@@ -477,10 +498,14 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
               entity="vehicles"
               value={form.vehicleId}
               valueLabel={form.vehicleLabel}
-              onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' }))}
+              status="idle,assigned"
+              onChange={(v, opt) => { setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' })); setAssignError(false); }}
               placeholder="Select Vehicle"
-              emptyLabel="No vehicles found"
+              emptyLabel="No free vehicles (vehicles on a trip in transit are hidden)"
             />
+            {assignError && !form.vehicleId && (
+              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the vehicle for this trip.</div>
+            )}
           </div>
 
           <div>

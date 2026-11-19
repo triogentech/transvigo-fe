@@ -403,6 +403,7 @@ export interface JobCard {
   supervisor?: { id: string; username: string } | null;
   garage?: { id: string; name: string } | null;
   entryOdometer: number;
+  entryOdometerPhotoUrl?: string | null;
   exitOdometer?: number | null;
   driverComplaint: string;
   diagnosis?: string | null;
