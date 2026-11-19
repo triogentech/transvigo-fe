@@ -22,6 +22,9 @@ interface FormState {
   shortName: string;
   contactNumber: string;
   isActive: boolean;
+  gstApplicable: boolean;
+  tdsApplicable: boolean;
+  gstRate: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -30,6 +33,9 @@ const EMPTY_FORM: FormState = {
   shortName: '',
   contactNumber: '',
   isActive: true,
+  gstApplicable: false,
+  tdsApplicable: false,
+  gstRate: '5',
 };
 
 export default function LoadProvidersPage() {
@@ -65,6 +71,9 @@ export default function LoadProvidersPage() {
       shortName: lp.shortName ?? '',
       contactNumber: lp.contactNumber ?? '',
       isActive: lp.isActive,
+      gstApplicable: !!lp.gstApplicable,
+      tdsApplicable: !!lp.tdsApplicable,
+      gstRate: String(lp.gstRate ?? 5),
     });
     setOpen(true);
   };
@@ -79,6 +88,9 @@ export default function LoadProvidersPage() {
         shortName: form.shortName || undefined,
         contactNumber: form.contactNumber,
         isActive: form.isActive,
+        gstApplicable: form.gstApplicable,
+        tdsApplicable: form.tdsApplicable,
+        gstRate: Number(form.gstRate) || 0,
       };
       if (editingId) {
         await updateLoadProvider(editingId, body);
@@ -123,6 +135,16 @@ export default function LoadProvidersPage() {
       render: (row: { contactNumber: string }) => (
         <span className="font-mono">{row.contactNumber}</span>
       ),
+    },
+    {
+      key: 'gstApplicable',
+      header: 'GST',
+      render: (row: LoadProvider) => (row.gstApplicable ? <Pill color="var(--accent-teal)">Yes · {Number(row.gstRate ?? 5)}%</Pill> : <span style={{ color: 'var(--text-muted)' }}>No</span>),
+    },
+    {
+      key: 'tdsApplicable',
+      header: 'TDS',
+      render: (row: LoadProvider) => (row.tdsApplicable ? <Pill color="var(--accent-teal)">Yes · 1%</Pill> : <span style={{ color: 'var(--text-muted)' }}>No</span>),
     },
     {
       key: 'isActive',
@@ -230,6 +252,20 @@ export default function LoadProvidersPage() {
               onChange={(e) => set('contactNumber', e.target.value)}
               placeholder="Phone number"
             />
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>GST applies to this company's bills</span>
+            <TVSwitch checked={form.gstApplicable} onCheckedChange={(v: boolean) => set('gstApplicable', v)} />
+          </div>
+          {form.gstApplicable && (
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>GST rate on freight (%)</label>
+              <input className="tv-input w-full font-mono" type="number" min="0" max="100" value={form.gstRate} onChange={(e) => set('gstRate', e.target.value)} />
+            </div>
+          )}
+          <div className="flex items-center justify-between py-1">
+            <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>TDS applies (1% of freight)</span>
+            <TVSwitch checked={form.tdsApplicable} onCheckedChange={(v: boolean) => set('tdsApplicable', v)} />
           </div>
           <div className="flex items-center justify-between py-1">
             <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Active</span>

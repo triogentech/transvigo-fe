@@ -23,6 +23,7 @@ const ALL_MODULES: ModuleSlug[] = [
   // Operations & Maintenance System
   'tickets', 'job-cards', 'spare-parts', 'spare-vendors', 'spare-inventory',
   'service-schedules', 'tyre-management', 'invoices',
+  'trip-bills',
 ];
 
 // Shared maintenance block — Staff and Operations both get full O&M access.
@@ -44,12 +45,13 @@ export const DEFAULT_PERMISSIONS: Record<string, Record<ModuleSlug, Bits>> = {
     trips: R,
     cities: R, 'fuel-stations': FULL, garages: FULL, 'fuel-logs': FULL,
     'garage-logs': FULL, 'tyre-logs': FULL, transactions: FULL,
-    'activity-logs': R, drivers: R, vehicles: R, staff: FULL,
+    'activity-logs': R, drivers: CRU, vehicles: R, staff: FULL,
     'load-providers': R, users: R,
+    'trip-bills': CRU,
     ...MAINTENANCE,
   }),
   Operations: build({
-    trips: FULL, vehicles: RU, drivers: R, 'load-providers': R,
+    trips: FULL, vehicles: RU, drivers: CRU, 'load-providers': R, 'trip-bills': R,
     'fuel-logs': CR, 'toll-logs': FULL, cities: R,
     'activity-logs': R, transactions: CRU,
     garages: R, 'garage-logs': FULL, 'tyre-logs': FULL,

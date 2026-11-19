@@ -62,7 +62,8 @@ export type ModuleSlug =
   | 'cities' | 'users'
   // Operations & Maintenance System
   | 'tickets' | 'job-cards' | 'spare-parts' | 'spare-vendors'
-  | 'spare-inventory' | 'service-schedules' | 'tyre-management' | 'invoices';
+  | 'spare-inventory' | 'service-schedules' | 'tyre-management' | 'invoices'
+  | 'trip-bills';
 export type PermissionAction = 'canCreate' | 'canRead' | 'canUpdate' | 'canDelete';
 
 export interface OrgUser {
@@ -143,9 +144,12 @@ export interface LoadProvider {
   id: string; orgId: string; cityId?: string;
   name: string; shortName?: string; vendorCode: string;
   countryDialCode: string; contactNumber: string; isActive: boolean;
+  /** Whether GST / TDS apply to this company's bills. */
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number | string;
   city?: City; createdAt: string; updatedAt: string;
 }
 export interface CreateLoadProviderBody {
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number;
   name: string; shortName?: string; countryDialCode?: string;
   contactNumber: string; isActive?: boolean; cityId?: string;
   /** Optional: your own vendor code. Left out, one is generated (LP-0001). */
@@ -605,4 +609,26 @@ export interface CreateIssueSlipBody {
   garageId?: string | null;
   notes?: string | null;
   items: CreateIssueSlipItemBody[];
+}
+
+// ── Payment tally (bills to companies) ──
+export type TripBillStatus = 'pending' | 'partial' | 'paid';
+export interface TripBill {
+  id: string; tripId: string; invoiceNumber: string; billDate: string;
+  tripStartDate: string | null; route: string; tripNumber: string; tripCloseDate: string | null;
+  freight: number; advance: number; balance: number;
+  tdsApplicable: boolean; tdsAmount: number; gstApplicable: boolean; gstRate: number; gstAmount: number;
+  penaltyAmount: number; penaltyRemark: string | null;
+  transferDate: string | null; rentPaidAmount: number; gstTransferDate: string | null;
+  vehicleNumber: string | null; vendorId: string | null; vendorName: string | null; vendorCode: string | null;
+  totalToPay: number; amountReceived: number; amountRemaining: number; status: TripBillStatus;
+}
+export interface TripBillSummary {
+  bills: number; totalBilled: number; totalReceived: number; totalRemaining: number;
+  pending: number; partial: number; paid: number;
+}
+export interface UpdateTripBillBody {
+  invoiceNumber?: string; penaltyAmount?: number; penaltyRemark?: string | null;
+  transferDate?: string | null; rentPaidAmount?: number; gstTransferDate?: string | null;
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number;
 }
