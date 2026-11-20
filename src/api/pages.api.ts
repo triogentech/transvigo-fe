@@ -78,8 +78,16 @@ export const getDriverDetailPage = (id: string) =>
 export const getTransactionsPage = (params?: Record<string, unknown>) =>
   get<{ transactions: Array<Transaction & { trip: { id: string; tripNumber: string; startPoint: string; endPoint: string } | null }>; meta: PageMeta; summary: { totalDebits: number; totalCredits: number; netFlow: number; manualCount: number; byCategory: Array<{ txnTowards: TxnTowards; total: number; count: number }> }; filters: { trips: SelectOption[] } }>('/api/pages/transactions', params);
 
+export interface VendorBillRow {
+  id: string; invoiceNumber: string; refNumber: string;
+  vendorName: string | null; vendorCode: string | null; vendorType: 'spare_parts' | 'garage' | null;
+  vehicleNumber: string | null; jobCardNumber: string | null;
+  billRaisedAmount: number; billPaidAmount: number;
+  paymentMode: 'cash' | 'credit'; settlement: 'paid' | 'pending'; createdAt: string;
+}
+
 export const getMaintenancePage = (params?: Record<string, unknown>) =>
-  get<{ garageLogs: GarageLog[]; tyreLogs: TyreLog[]; meta: { garageLogsMeta: PageMeta; tyreLogsMeta: PageMeta }; filters: { vehicles: SelectOption[]; garages: SelectOption[] }; summary: Record<string, number> }>('/api/pages/maintenance', params);
+  get<{ garageLogs: GarageLog[]; tyreLogs: TyreLog[]; invoices: VendorBillRow[]; invoiceTotals: { billRaised: number; billPaid: number }; meta: { garageLogsMeta: PageMeta; tyreLogsMeta: PageMeta }; filters: { vehicles: SelectOption[]; garages: SelectOption[] }; summary: Record<string, number> }>('/api/pages/maintenance', params);
 
 export const getFuelLogsPage = (params?: Record<string, unknown>) =>
   get<{ fuelLogs: FuelLog[]; meta: PageMeta; filters: { vehicles: SelectOption[]; fuelStations: SelectOption[] }; summary: { totalLitres: number; totalCost: number; avgRatePerLitre: number; byFuelType: Array<{ fuelType: string; litres: number; cost: number }> } }>('/api/pages/fuel-logs', params);

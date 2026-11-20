@@ -62,7 +62,8 @@ export type ModuleSlug =
   | 'cities' | 'users'
   // Operations & Maintenance System
   | 'tickets' | 'job-cards' | 'spare-parts' | 'spare-vendors'
-  | 'spare-inventory' | 'service-schedules' | 'tyre-management' | 'invoices';
+  | 'spare-inventory' | 'service-schedules' | 'tyre-management' | 'invoices'
+  | 'trip-bills';
 export type PermissionAction = 'canCreate' | 'canRead' | 'canUpdate' | 'canDelete';
 
 export interface OrgUser {
@@ -141,13 +142,18 @@ export interface CreateStaffBody {
 // ── Load Provider ──
 export interface LoadProvider {
   id: string; orgId: string; cityId?: string;
-  name: string; shortName?: string;
+  name: string; shortName?: string; vendorCode: string;
   countryDialCode: string; contactNumber: string; isActive: boolean;
+  /** Whether GST / TDS apply to this company's bills. */
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number | string;
   city?: City; createdAt: string; updatedAt: string;
 }
 export interface CreateLoadProviderBody {
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number;
   name: string; shortName?: string; countryDialCode?: string;
   contactNumber: string; isActive?: boolean; cityId?: string;
+  /** Optional: your own vendor code. Left out, one is generated (LP-0001). */
+  vendorCode?: string;
 }
 
 // ── Trip ──
@@ -231,10 +237,15 @@ export interface CreateFuelLogBody {
 // ── Garage ──
 export interface Garage {
   id: string; orgId: string; cityId?: string;
-  name: string; isActive: boolean; city?: City;
+  name: string; vendorCode: string; contactPerson?: string; contactNumber?: string; notes?: string;
+  isActive: boolean; city?: City;
   createdAt: string; updatedAt: string;
 }
-export interface CreateGarageBody { name: string; isActive?: boolean; cityId?: string }
+export interface CreateGarageBody {
+  name: string; isActive?: boolean; cityId?: string;
+  /** Optional: your own vendor code. Left out, one is generated (WS-0001). */
+  vendorCode?: string; contactPerson?: string; contactNumber?: string; notes?: string;
+}
 
 // ── Garage Log ──
 export interface GarageLog {
@@ -396,6 +407,7 @@ export interface JobCard {
   supervisor?: { id: string; username: string } | null;
   garage?: { id: string; name: string } | null;
   entryOdometer: number;
+  entryOdometerPhotoUrl?: string | null;
   exitOdometer?: number | null;
   driverComplaint: string;
   diagnosis?: string | null;
@@ -404,11 +416,18 @@ export interface JobCard {
   entryTime: string;
   closedTime?: string | null;
   isLoadReady: boolean;
+  /** Driver maintenance reports: the priority the driver picked, and the reply lifecycle (the SLA is measured to acknowledgement). */
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  source?: 'ops' | 'driver_report';
+  responseStatus?: 'pending' | 'acknowledged' | 'resolved';
+  acknowledgedAt?: string | null;
+  resolvedAt?: string | null;
+  sla?: { dueAt: string; status: 'on_track' | 'at_risk' | 'breached' | 'met' | 'missed'; minutesLeft: number | null } | null;
   linkedTicketId?: string | null;
   totalPartsCost: string | number;
   totalLabourCost: string | number;
   totalJobCost: string | number;
-  _count?: { spareIssueSlips: number };
+  _count?: { spareIssueSlips: number; messages?: number };
   createdAt: string;
 }
 
@@ -523,6 +542,12 @@ export interface SupplierInvoice {
   invoiceNumber: string;
   vendorId?: string | null;
   vendor?: { id: string; vendorName: string } | null;
+  /** The billing vendor (spare parts vendor or garage) with its code. */
+  supplier?: { id: string; type: 'spare_parts' | 'garage'; name: string; vendorCode: string } | null;
+  paymentMode?: 'cash' | 'credit';
+  billRaisedAmount?: number;
+  billPaidAmount?: number;
+  settlement?: 'paid' | 'pending';
   vehicleId?: string | null;
   vehicle?: { id: string; vehicleNumber: string } | null;
   jobCardId?: string | null;
@@ -541,6 +566,8 @@ export interface CreateInvoiceBody {
   vendorId?: string | null;
   totalAmount?: number;
   paymentStatus?: InvoicePaymentStatus;
+  paymentMode?: 'cash' | 'credit';
+  paidAmount?: number;
   invoiceDate?: string | null;
   notes?: string | null;
 }
@@ -582,4 +609,26 @@ export interface CreateIssueSlipBody {
   garageId?: string | null;
   notes?: string | null;
   items: CreateIssueSlipItemBody[];
+}
+
+// ── Payment tally (bills to companies) ──
+export type TripBillStatus = 'pending' | 'partial' | 'paid';
+export interface TripBill {
+  id: string; tripId: string; invoiceNumber: string; billDate: string;
+  tripStartDate: string | null; route: string; tripNumber: string; tripCloseDate: string | null;
+  freight: number; advance: number; balance: number;
+  tdsApplicable: boolean; tdsAmount: number; gstApplicable: boolean; gstRate: number; gstAmount: number;
+  penaltyAmount: number; penaltyRemark: string | null;
+  transferDate: string | null; rentPaidAmount: number; gstTransferDate: string | null;
+  vehicleNumber: string | null; vendorId: string | null; vendorName: string | null; vendorCode: string | null;
+  totalToPay: number; amountReceived: number; amountRemaining: number; status: TripBillStatus;
+}
+export interface TripBillSummary {
+  bills: number; totalBilled: number; totalReceived: number; totalRemaining: number;
+  pending: number; partial: number; paid: number;
+}
+export interface UpdateTripBillBody {
+  invoiceNumber?: string; penaltyAmount?: number; penaltyRemark?: string | null;
+  transferDate?: string | null; rentPaidAmount?: number; gstTransferDate?: string | null;
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number;
 }

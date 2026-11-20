@@ -18,10 +18,13 @@ const TVSwitch: React.FC<any> = UI.TVSwitch;
 
 interface FormState {
   name: string;
+  vendorCode: string;
+  contactPerson: string;
+  contactNumber: string;
   isActive: boolean;
 }
 
-const EMPTY_FORM: FormState = { name: '', isActive: true };
+const EMPTY_FORM: FormState = { name: '', vendorCode: '', contactPerson: '', contactNumber: '', isActive: true };
 
 export default function GaragesPage() {
   const { allGarages, loading, error, refetch, createGarage, updateGarage, deleteGarage } = useGarages();
@@ -57,7 +60,7 @@ export default function GaragesPage() {
 
   const openEdit = (g: Garage) => {
     setEditingId(g.id);
-    setForm({ name: g.name, isActive: g.isActive ?? true });
+    setForm({ name: g.name, vendorCode: g.vendorCode ?? '', contactPerson: g.contactPerson ?? '', contactNumber: g.contactNumber ?? '', isActive: g.isActive ?? true });
     setOpen(true);
   };
 
@@ -65,7 +68,13 @@ export default function GaragesPage() {
     if (!form.name.trim()) return toast.error('Enter a name');
     setSubmitting(true);
     try {
-      const body: CreateGarageBody = { name: form.name, isActive: form.isActive };
+      const body: CreateGarageBody = {
+        name: form.name,
+        vendorCode: form.vendorCode.trim() || undefined,
+        contactPerson: form.contactPerson.trim() || undefined,
+        contactNumber: form.contactNumber.trim() || undefined,
+        isActive: form.isActive,
+      };
       if (editingId) {
         await updateGarage(editingId, body);
         toast.success('Garage updated');
@@ -96,7 +105,13 @@ export default function GaragesPage() {
   };
 
   const columns = [
+    {
+      key: 'vendorCode',
+      header: 'Vendor Code',
+      render: (row: { vendorCode?: string }) => <span className="font-mono">{row.vendorCode ?? '—'}</span>,
+    },
     { key: 'name', header: 'Name' },
+    { key: 'contactPerson', header: 'Contact' },
     {
       key: 'isActive',
       header: 'Status',
@@ -180,6 +195,39 @@ export default function GaragesPage() {
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="Garage name"
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              Vendor Code
+            </label>
+            <input
+              className="tv-input w-full font-mono"
+              value={form.vendorCode}
+              onChange={(e) => set('vendorCode', e.target.value)}
+              placeholder={editingId ? '' : 'Leave blank to generate (WS-0001…)'}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              Contact Person
+            </label>
+            <input
+              className="tv-input w-full"
+              value={form.contactPerson}
+              onChange={(e) => set('contactPerson', e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              Contact Number
+            </label>
+            <input
+              className="tv-input w-full"
+              value={form.contactNumber}
+              onChange={(e) => set('contactNumber', e.target.value)}
+              placeholder="Optional"
             />
           </div>
           <div className="flex items-center justify-between py-1">

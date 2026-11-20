@@ -9,7 +9,7 @@ export interface SelectOption {
 export type SelectEntity =
   | 'drivers' | 'vehicles' | 'load-providers' | 'fuel-stations'
   | 'garages' | 'cities' | 'trips' | 'assignees'
-  | 'job-cards' | 'spare-vendors' | 'spare-parts';
+  | 'job-cards' | 'spare-vendors' | 'spare-parts' | 'vendors';
 
 // Strategy 2 + 3: tiny dropdown payloads, fetched ONCE per (entity, params) and
 // shared across pages via this in-memory cache (5-min TTL). The server also
