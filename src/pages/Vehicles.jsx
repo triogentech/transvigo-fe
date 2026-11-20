@@ -100,7 +100,7 @@ function VehicleCard({ vehicle, onView, onEdit, onAssign }) {
                 padding: '1px 5px',
               }}
             >
-              {vehicle.axleType}
+              {vehicle.axleType ?? '—'}
             </span>
           </div>
         </div>
@@ -226,7 +226,7 @@ function makeColumns({ onView, onEdit, onAssign }) {
     width: 80,
     render: (row) => (
       <span className="font-mono uppercase" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-        {row.axleType}
+        {row.axleType ?? '—'}
       </span>
     ),
   },
@@ -352,7 +352,7 @@ function VehicleFormModal({ open, onOpenChange, vehicle, createVehicle, updateVe
       setForm({
         vehicleNumber: vehicle.vehicleNumber ?? '',
         model: vehicle.model ?? '',
-        axleType: vehicle.axleType ?? 'single',
+        axleType: vehicle.axleType ?? '',
         engineNumber: vehicle.engineNumber ?? '',
         chassisNumber: vehicle.chassisNumber ?? '',
         registrationDate: dateInput(vehicle.registrationDate),
@@ -394,6 +394,8 @@ function VehicleFormModal({ open, onOpenChange, vehicle, createVehicle, updateVe
         isActive: true,
       };
       if (isEdit) {
+        // a detail that is still blank is left out (it can be filled in later), not sent as an empty value
+        for (const k of Object.keys(body)) if (body[k] === '' || body[k] === undefined) delete body[k];
         await updateVehicle(vehicle.id, body);
         toast.success('Vehicle updated');
       } else {
@@ -474,7 +476,9 @@ function VehicleFormModal({ open, onOpenChange, vehicle, createVehicle, updateVe
             <TVSelect
               value={form.axleType}
               onValueChange={(v) => set('axleType', v)}
+              placeholder="Not set"
               options={[
+                ...(isEdit && !form.axleType ? [{ value: '', label: 'Not set' }] : []),
                 { value: 'single', label: 'Single Axle' },
                 { value: 'multi', label: 'Multi Axle' },
               ]}
@@ -573,12 +577,12 @@ function ViewVehicleModal({ vehicle, onClose }) {
   const rows = [
     ['Vehicle Number', vehicle.vehicleNumber],
     ['Model', vehicle.model || '—'],
-    ['Axle Type', vehicle.axleType],
+    ['Axle Type', vehicle.axleType ?? '—'],
     ['Status', vehicle.currentStatus],
     ['Assigned Driver', vehicle.currentDriver ? vehicle.currentDriver.fullName : 'Unassigned'],
     ['Odometer (KM)', formatNum(vehicle.odometerReading)],
-    ['Engine Number', vehicle.engineNumber],
-    ['Chassis Number', vehicle.chassisNumber],
+    ['Engine Number', vehicle.engineNumber ?? '—'],
+    ['Chassis Number', vehicle.chassisNumber ?? '—'],
     ['Registration', shortDate(vehicle.registrationDate)],
     ['Fitness', shortDate(vehicle.fitnessDate)],
     ['Insurance', shortDate(vehicle.insuranceDate)],
