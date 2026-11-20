@@ -15,4 +15,13 @@ export const getTripBills = (f: TripBillFilters = {}) =>
 
 export const updateTripBill = (id: string, body: UpdateTripBillBody) => put<TripBill>(`/api/trip-bills/${id}`, body);
 
-export const generateMissingBills = () => post<{ created: number }>('/api/trip-bills/generate-missing', {});
+/** Bills older completed trips in batches until none are left; returns how many were created. */
+export async function generateMissingBills(): Promise<{ created: number }> {
+  let created = 0;
+  for (let i = 0; i < 100; i++) {
+    const r = await post<{ created: number; remaining: number }>('/api/trip-bills/generate-missing', {});
+    created += r.created;
+    if (r.remaining === 0 || r.created === 0) break;
+  }
+  return { created };
+}
