@@ -1357,10 +1357,14 @@ export default function Trips() {
                 Mark Completed
               </MenuItem>
             )}
-            <MenuSeparator />
-            <MenuItem danger onSelect={() => setCancelTrip(row)}>
-              Cancel Trip
-            </MenuItem>
+            {row.currentStatus !== 'completed' && (
+              <>
+                <MenuSeparator />
+                <MenuItem danger onSelect={() => setCancelTrip(row)}>
+                  Cancel Trip
+                </MenuItem>
+              </>
+            )}
           </Menu>
         </span>
       ),
