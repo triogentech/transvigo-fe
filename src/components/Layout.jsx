@@ -51,7 +51,7 @@ const NAV = [
     { label: 'Cities',          icon: Building2,   to: '/cities',          permission: 'cities' },
     { label: 'Load Providers',  icon: PackageSearch, to: '/load-providers', permission: 'load-providers' },
     { label: 'Fuel Stations',   icon: Zap,         to: '/fuel-stations',   permission: 'fuel-stations' },
-    { label: 'Garages',         icon: Warehouse,   to: '/garages',         permission: 'garages' },
+    { label: 'Vendors',         icon: Warehouse,   to: '/vendors',         permission: 'spare-vendors' },
   ]},
   { group: 'ADMIN', items: [
     { label: 'Team',          icon: UserCog,    to: '/admin/users',  adminOnly: true },

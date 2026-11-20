@@ -273,7 +273,7 @@ export default function SparePartsPage() {
     { key: 'slipNumber', header: 'Slip No', render: (r: SpareIssueSlip) => <span className="font-mono" style={{ color: 'var(--teal)' }}>{r.slipNumber}</span> },
     { key: 'vehicle', header: 'Vehicle', render: (r: SpareIssueSlip) => r.vehicle?.vehicleNumber ?? '—' },
     { key: 'jobCard', header: 'Job Card', render: (r: SpareIssueSlip) => r.jobCard?.jobCardNumber ?? '—' },
-    { key: 'garage', header: 'Garage', render: (r: SpareIssueSlip) => r.garage?.name ?? '—' },
+    { key: 'garage', header: 'Garage / workshop', render: (r: SpareIssueSlip) => r.garage?.name ?? '—' },
     { key: 'parts', header: 'Parts', render: (r: SpareIssueSlip) => `${r.items?.length ?? 0} item(s)` },
     { key: 'totalSlipValue', header: 'Total', render: (r: SpareIssueSlip) => inr(r.totalSlipValue) },
   ];
@@ -380,7 +380,7 @@ export default function SparePartsPage() {
             </Field>
           </div>
           <div className="flex gap-3">
-            <Field label="Garage">
+            <Field label="Garage / workshop">
               <select className="tv-input w-full" value={slip.garageId} onChange={(e) => setS('garageId', e.target.value)}>
                 <option value="">— none —</option>
                 {garages.map((g) => (<option key={g.value} value={g.value}>{g.label}</option>))}

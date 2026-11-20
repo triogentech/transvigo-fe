@@ -226,7 +226,7 @@ export default function JobCardsPage() {
       },
     },
     { key: 'driverComplaint', header: 'Complaint', render: (r: JobCard) => <span title={r.driverComplaint}>{r.driverComplaint.length > 40 ? `${r.driverComplaint.slice(0, 40)}…` : r.driverComplaint}</span> },
-    { key: 'garage', header: 'Garage', render: (r: JobCard) => r.garage?.name ?? '—' },
+    { key: 'garage', header: 'Garage / workshop', render: (r: JobCard) => r.garage?.name ?? '—' },
     { key: 'totalJobCost', header: 'Cost', render: (r: JobCard) => inr(r.totalJobCost) },
     {
       key: 'supervisor',
@@ -401,7 +401,7 @@ export default function JobCardsPage() {
               />
             </div>
             <div className="flex-1">
-              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Garage</label>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Garage / workshop</label>
               <select className="tv-input w-full" value={form.garageId} onChange={(e) => set('garageId', e.target.value)}>
                 <option value="">Unassigned</option>
                 {garages.map((g) => (

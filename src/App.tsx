@@ -1,6 +1,6 @@
 // ── SECTION: App Root, Providers & Router (real auth) ──
 import React from 'react';
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { AuthProvider } from './context/AuthContext';
 import { PermissionsProvider } from './context/PermissionsContext';
@@ -50,7 +50,7 @@ import MaintenancePage from './pages/MaintenancePage';
 import CitiesPage from './pages/CitiesPage';
 import LoadProvidersPage from './pages/LoadProvidersPage';
 import FuelStationsPage from './pages/FuelStationsPage';
-import GaragesPage from './pages/GaragesPage';
+import VendorsPage from './pages/VendorsPage';
 import TeamPage from './pages/TeamPage';
 
 export default function App() {
@@ -84,7 +84,8 @@ export default function App() {
                 <Route path="cities" element={<RequirePermission module="cities" action="canRead"><CitiesPage /></RequirePermission>} />
                 <Route path="load-providers" element={<RequirePermission module="load-providers" action="canRead"><LoadProvidersPage /></RequirePermission>} />
                 <Route path="fuel-stations" element={<RequirePermission module="fuel-stations" action="canRead"><FuelStationsPage /></RequirePermission>} />
-                <Route path="garages" element={<RequirePermission module="garages" action="canRead"><GaragesPage /></RequirePermission>} />
+                <Route path="vendors" element={<RequirePermission module="spare-vendors" action="canRead"><VendorsPage /></RequirePermission>} />
+                <Route path="garages" element={<Navigate to="/vendors" replace />} />
                 <Route path="map" element={<LiveMapPlaceholder />} />
                 <Route path="admin/roles" element={<RequireRole roles={['Admin']}><Roles /></RequireRole>} />
                 <Route path="admin/users" element={<RequireRole roles={['Admin']}><TeamPage /></RequireRole>} />

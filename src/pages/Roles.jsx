@@ -68,7 +68,7 @@ function moduleName(slug) {
     'toll-logs': 'Toll Logs',
     'fuel-stations': 'Fuel Stations',
     'fuel-logs': 'Fuel Logs',
-    garages: 'Garages',
+    garages: 'Garage / workshop vendors',
     'garage-logs': 'Maintenance / Work Orders',
     'tyre-logs': 'Tyre Logs',
     cities: 'Cities',
@@ -80,7 +80,7 @@ function moduleName(slug) {
     'job-cards': 'Job Cards',
     'service-schedules': 'Service Schedules',
     'spare-parts': 'Spare Parts',
-    'spare-vendors': 'Spare Vendors',
+    'spare-vendors': 'Vendors (Vendors page)',
     'spare-inventory': 'Spare Issue Slips',
     invoices: 'Supplier Invoices',
   };
