@@ -230,8 +230,12 @@ function EditTripModal({ trip, onClose, onSaved }) {
   async function save() {
     const freight = Number(form.freight);
     const advance = Number(form.advance);
-    if (!Number.isFinite(freight) || freight < 0 || !Number.isFinite(advance) || advance < 0) {
-      toast({ title: 'Check the amounts', description: 'Freight and advance must be zero or more.', color: 'var(--danger)' });
+    if (!Number.isFinite(freight) || freight <= 0) {
+      toast({ title: 'Check the freight', description: 'The freight must be more than 0.', color: 'var(--danger)' });
+      return;
+    }
+    if (!Number.isFinite(advance) || advance < 0) {
+      toast({ title: 'Check the advance', description: 'The advance cannot be negative.', color: 'var(--danger)' });
       return;
     }
     const end = form.estEnd ? new Date(form.estEnd) : null;
@@ -245,7 +249,7 @@ function EditTripModal({ trip, onClose, onSaved }) {
       await apiUpdateTrip(trip.id, {
         freightTotalAmount: Math.round(freight),
         advanceAmount: Math.round(advance),
-        totalTripDistanceKm: Math.round(Number(form.distance) || 0),
+        ...(Number(form.distance) > 0 ? { totalTripDistanceKm: Math.round(Number(form.distance)) } : {}),
         ...(end ? { estimatedEndTime: end.toISOString(), totalTripTimeMinutes: Math.round((end - start) / 60000) } : {}),
       });
       toast({ title: 'Trip updated', description: `${trip.tripNumber} saved`, color: 'var(--teal)', icon: <CheckCircle2 size={16} style={{ color: 'var(--teal)', flexShrink: 0 }} /> });
@@ -338,8 +342,6 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   const selectedProvider = (allLoadProviders ?? []).find((p) => p.value === form.loadProviderId) || null;
   // Options are labelled "Name · CODE"; show the code on its own.
   const providerCode = selectedProvider ? (selectedProvider.label.split(' · ')[1] ?? '') : '';
-  const [vendorError, setVendorError] = useState(false);
-  const [assignError, setAssignError] = useState(false);
   // Only drivers who are not already on a trip in transit can be picked.
   const [freeDrivers, setFreeDrivers] = useState(null);
   useEffect(() => {
@@ -347,19 +349,39 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
     clearSelectCache('drivers');
     getSelect('drivers', { status: 'available,assigned' }).then(setFreeDrivers).catch(() => setFreeDrivers(null));
   }, [open]);
-  const needVendor = () => {
-    setVendorError(true);
-    toast({ title: 'Select the vendor this trip is for', description: 'Every trip needs a vendor (load provider).', color: 'var(--danger)' });
+
+  // Required: start, end, est. start, duration, distance (step 1); vehicle, vendor, freight (step 2).
+  // Optional: trip ID, driver, advance, touching locations (unless switched on).
+  const [tried, setTried] = useState({ 1: false, 2: false });
+  const validate = (n) => {
+    const e = {};
+    if (n === 1) {
+      if (!form.start.trim()) e.start = 'Enter the start point';
+      if (!form.end.trim()) e.end = 'Enter the end point';
+      if (!form.estStart) e.estStart = 'Select the estimated start';
+      if (!(Number(form.duration) > 0)) e.duration = 'Enter the duration in hours (more than 0)';
+      if (!(Number(form.distance) > 0)) e.distance = 'Enter the distance in km (more than 0)';
+      if (touchingLocations && !locations.some((l) => l.trim())) e.locations = 'Enter at least one stop, or turn Touching Locations off';
+    } else {
+      if (!form.vehicleId) e.vehicleId = 'Select the vehicle for this trip';
+      if (!form.loadProviderId) e.loadProviderId = 'Select the vendor this trip is for';
+      if (!(Number(form.freight) > 0)) e.freight = 'Enter the freight (more than 0)';
+      if (form.advance !== '' && !(Number(form.advance) >= 0)) e.advance = 'The advance cannot be negative';
+    }
+    return e;
   };
-  const needAssignment = () => {
-    setAssignError(true);
-    toast({ title: 'Select a driver and a vehicle', description: 'A trip must have both a driver and a vehicle.', color: 'var(--danger)' });
+  const errs = { ...(tried[1] ? validate(1) : {}), ...(tried[2] ? validate(2) : {}) };
+  // Shows the messages and says what is missing. Returns true when the step is complete.
+  const stepOk = (n) => {
+    const e = validate(n);
+    const msgs = Object.values(e);
+    if (msgs.length === 0) return true;
+    setTried((t) => ({ ...t, [n]: true }));
+    toast({ title: `Fill in the required fields (${msgs.length})`, description: msgs.slice(0, 3).join(' · '), color: 'var(--danger)' });
+    return false;
   };
-  const assignmentOk = () => {
-    if (!form.driverId || !form.vehicleId) { needAssignment(); return false; }
-    if (!form.loadProviderId) { needVendor(); return false; }
-    return true;
-  };
+  const Err = ({ k }) => (errs[k] ? <div role="alert" style={{ marginTop: 5, fontSize: 12, color: 'var(--danger)' }}>{errs[k]}</div> : null);
+  const bad = (k) => (errs[k] ? { borderColor: 'var(--danger)' } : {});
 
   const inputStyle = {
     background: 'var(--navy-base)',
@@ -380,28 +402,30 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
     setForm({ tripNumber: '', start: '', end: '', estStart: '', estEnd: '', distance: '', duration: '', driverId: '', vehicleId: '', loadProviderId: '', freight: '', advance: '', vendorCode: '', vendorName: '' });
     setTouchingLocations(false);
     setLocations(['']);
+    setTried({ 1: false, 2: false });
   }
 
   async function handleConfirm() {
-    if (!assignmentOk()) { setStep(2); return; }
+    if (!stepOk(1)) { setStep(1); return; }
+    if (!stepOk(2)) { setStep(2); return; }
     setSubmitting(true);
     try {
       const body = {
         tripNumber: form.tripNumber.trim() || undefined,
-        startPoint: form.start,
-        endPoint: form.end,
-        estimatedStartTime: form.estStart ? new Date(form.estStart).toISOString() : new Date().toISOString(),
-        estimatedEndTime: form.estEnd ? new Date(form.estEnd).toISOString() : new Date().toISOString(),
-        totalTripDistanceKm: Number(form.distance) || 0,
-        totalTripTimeMinutes: form.duration ? Math.round(Number(form.duration) * 60) : 0,
-        freightTotalAmount: Number(form.freight) || 0,
-        advanceAmount: form.advance ? Number(form.advance) : undefined,
+        startPoint: form.start.trim(),
+        endPoint: form.end.trim(),
+        estimatedStartTime: new Date(form.estStart).toISOString(),
+        estimatedEndTime: new Date(form.estEnd).toISOString(),
+        totalTripDistanceKm: Math.round(Number(form.distance)),
+        totalTripTimeMinutes: Math.round(Number(form.duration) * 60),
+        freightTotalAmount: Math.round(Number(form.freight)),
+        advanceAmount: form.advance ? Math.round(Number(form.advance)) : undefined,
         driverId: form.driverId || undefined,
         vehicleId: form.vehicleId || undefined,
         loadProviderId: form.loadProviderId,
         isTouchingLocationAvailable: touchingLocations,
         touchingLocations: touchingLocations
-          ? locations.filter(Boolean).map((name, i) => ({ name, sequence: i + 1 }))
+          ? locations.filter((l) => l.trim()).map((name, i) => ({ name: name.trim(), sequence: i + 1 }))
           : undefined,
       };
       await createTrip(body);
@@ -463,7 +487,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             </button>
           )}
           {step < 3 ? (
-            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => { if (step === 2 && !assignmentOk()) return; setStep((s) => s + 1); }}>
+            <button className="btn-brand px-4 py-1.5" style={{ fontSize: 13 }} onClick={() => { if (stepOk(step)) setStep((s) => s + 1); }}>
               Next
             </button>
           ) : (
@@ -491,18 +515,21 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Start Point <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input style={inputStyle} placeholder="e.g. Mumbai" value={form.start} onChange={(e) => setF('start', e.target.value)} />
+              <input style={{ ...inputStyle, ...bad('start') }} placeholder="e.g. Mumbai" value={form.start} onChange={(e) => setF('start', e.target.value)} />
+              <Err k="start" />
             </div>
             <div>
               <label style={labelStyle}>End Point <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input style={inputStyle} placeholder="e.g. Pune" value={form.end} onChange={(e) => setF('end', e.target.value)} />
+              <input style={{ ...inputStyle, ...bad('end') }} placeholder="e.g. Pune" value={form.end} onChange={(e) => setF('end', e.target.value)} />
+              <Err k="end" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={labelStyle}>Est. Start</label>
-              <input type="datetime-local" style={inputStyle} value={form.estStart} onChange={(e) => setEstStart(e.target.value)} />
+              <label style={labelStyle}>Est. Start <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input type="datetime-local" style={{ ...inputStyle, ...bad('estStart') }} value={form.estStart} onChange={(e) => setEstStart(e.target.value)} />
+              <Err k="estStart" />
             </div>
             <div>
               <label style={labelStyle}>Est. End <span style={{ color: 'var(--text-dim)' }}>(auto from duration)</span></label>
@@ -519,18 +546,20 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={labelStyle}>Distance (km)</label>
-              <input type="number" style={inputStyle} placeholder="e.g. 148" value={form.distance} onChange={(e) => setF('distance', e.target.value)} />
+              <label style={labelStyle}>Distance (km) <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input type="number" min="1" style={{ ...inputStyle, ...bad('distance') }} placeholder="e.g. 148" value={form.distance} onChange={(e) => setF('distance', e.target.value)} />
+              <Err k="distance" />
             </div>
             <div>
-              <label style={labelStyle}>Duration (hours)</label>
-              <input type="number" step="0.5" style={inputStyle} placeholder="e.g. 3.5" value={form.duration} onChange={(e) => setDuration(e.target.value)} />
+              <label style={labelStyle}>Duration (hours) <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input type="number" min="0" step="0.5" style={{ ...inputStyle, ...bad('duration') }} placeholder="e.g. 3.5" value={form.duration} onChange={(e) => setDuration(e.target.value)} />
+              <Err k="duration" />
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <TVSwitch checked={touchingLocations} onCheckedChange={setTouchingLocations} />
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Touching Locations</span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Touching Locations <span style={{ color: 'var(--text-dim)' }}>(optional)</span></span>
           </div>
 
           {touchingLocations && (
@@ -561,8 +590,10 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
               >
                 + Add Stop
               </button>
+              <Err k="locations" />
             </div>
           )}
+          {!touchingLocations && errs.locations && <Err k="locations" />}
         </div>
       )}
 
@@ -570,16 +601,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
       {step === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={labelStyle}>Driver <span style={{ color: 'var(--danger)' }}>*</span></label>
+            <label style={labelStyle}>Driver <span style={{ color: 'var(--text-dim)' }}>(optional — can be assigned later)</span></label>
             <TVSelect
               value={form.driverId}
-              onValueChange={(v) => { setF('driverId', v); setAssignError(false); }}
+              onValueChange={(v) => setF('driverId', v)}
               placeholder="Select Driver"
               options={DRIVER_OPTIONS_MODAL}
             />
-            {assignError && !form.driverId && (
-              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the driver for this trip.</div>
-            )}
           </div>
 
           <div>
@@ -589,26 +617,22 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
               value={form.vehicleId}
               valueLabel={form.vehicleLabel}
               status="idle,assigned"
-              onChange={(v, opt) => { setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' })); setAssignError(false); }}
+              onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' }))}
               placeholder="Select Vehicle"
               emptyLabel="No free vehicles (vehicles on a trip in transit are hidden)"
             />
-            {assignError && !form.vehicleId && (
-              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the vehicle for this trip.</div>
-            )}
+            <Err k="vehicleId" />
           </div>
 
           <div>
             <label style={labelStyle}>Vendor (load provider) <span style={{ color: 'var(--danger)' }}>*</span></label>
             <TVSelect
               value={form.loadProviderId}
-              onValueChange={(v) => { setF('loadProviderId', v); setVendorError(false); }}
+              onValueChange={(v) => setF('loadProviderId', v)}
               placeholder="Select vendor"
               options={PROVIDER_OPTIONS_MODAL}
             />
-            {vendorError && !form.loadProviderId && (
-              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>Select the vendor this trip is for.</div>
-            )}
+            <Err k="loadProviderId" />
             {form.loadProviderId && selectedProvider && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
                 Vendor code: <span className="font-mono">{providerCode}</span>. The name and code are saved on the trip from the vendor.
@@ -619,11 +643,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Freight (₹) <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input type="number" style={inputStyle} placeholder="0" value={form.freight} onChange={(e) => setF('freight', e.target.value)} />
+              <input type="number" min="1" style={{ ...inputStyle, ...bad('freight') }} placeholder="0" value={form.freight} onChange={(e) => setF('freight', e.target.value)} />
+              <Err k="freight" />
             </div>
             <div>
-              <label style={labelStyle}>Advance (₹)</label>
-              <input type="number" style={inputStyle} placeholder="0" value={form.advance} onChange={(e) => setF('advance', e.target.value)} />
+              <label style={labelStyle}>Advance (₹) <span style={{ color: 'var(--text-dim)' }}>(optional)</span></label>
+              <input type="number" min="0" style={{ ...inputStyle, ...bad('advance') }} placeholder="0" value={form.advance} onChange={(e) => setF('advance', e.target.value)} />
+              <Err k="advance" />
             </div>
           </div>
         </div>
