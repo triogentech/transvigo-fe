@@ -1,5 +1,6 @@
 // API CALLS: 1 (GET /api/pages/fuel-logs)
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getSelect, type SelectOption } from '../api/select.api';
 import { useFuelLogsPage } from '../hooks/pages/useFuelLogsPage';
 import { useFuelLogsActions } from '../hooks/actions/useFuelLogsActions';
 import { useToast } from '../context/ToastContext';
@@ -19,6 +20,7 @@ const Modal: React.FC<any> = UI.Modal;
 const TVSelect: React.FC<any> = UI.TVSelect;
 
 interface FormState {
+  fuelStationId: string;
   date: string;
   fuelType: FuelType;
   fuelQuantityLtr: string;
@@ -27,6 +29,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
+  fuelStationId: '',
   date: '',
   fuelType: 'diesel',
   fuelQuantityLtr: '',
@@ -48,6 +51,9 @@ export default function FuelLogsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [stationTried, setStationTried] = useState(false);
+  const [stations, setStations] = useState<SelectOption[]>([]);
+  useEffect(() => { void getSelect('fuel-stations').then(setStations).catch(() => undefined); }, []);
 
   // Map vehicle id → display label (vehicle number) from the filter options,
   // so the table shows the vehicle number instead of the raw UUID.
@@ -73,14 +79,17 @@ export default function FuelLogsPage() {
     setForm((f) => ({ ...f, [k]: v }));
 
   const openModal = () => {
+    setStationTried(false);
     setForm(EMPTY_FORM);
     setOpen(true);
   };
 
   const submit = async () => {
+    if (!form.fuelStationId) { setStationTried(true); return toast.error('Select the fuel station vendor'); }
     setSubmitting(true);
     try {
       const body: CreateFuelLogBody = {
+        fuelStationId: form.fuelStationId,
         date: form.date,
         fuelType: form.fuelType,
         fuelQuantityLtr: parseFloat(form.fuelQuantityLtr) || 0,
@@ -249,6 +258,22 @@ export default function FuelLogsPage() {
         }
       >
         <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+              Fuel station vendor <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
+            <select
+              className="tv-input w-full"
+              style={!form.fuelStationId && stationTried ? { borderColor: 'var(--danger)' } : undefined}
+              value={form.fuelStationId}
+              onChange={(e) => set('fuelStationId', e.target.value)}
+            >
+              <option value="">Select fuel station</option>
+              {stations.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
+            </select>
+            {!form.fuelStationId && stationTried && <div role="alert" style={{ marginTop: 5, fontSize: 12, color: 'var(--danger)' }}>Select the fuel station vendor.</div>}
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-dim)' }}>Not in the list? Add it on the <a href="/vendors" style={{ color: 'var(--teal)' }}>Vendors</a> page (type: Fuel station vendor).</div>
+          </div>
           <div>
             <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
               Date
