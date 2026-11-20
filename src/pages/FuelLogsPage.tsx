@@ -106,6 +106,16 @@ export default function FuelLogsPage() {
     },
     { key: 'fuelType', header: 'Fuel Type' },
     {
+      key: 'fuelStation',
+      header: 'Fuel station vendor',
+      render: (row: FuelLog) =>
+        row.fuelStation ? (
+          <span>{row.fuelStation.name} <span className="font-mono" style={{ color: 'var(--text-dim)' }}>· {row.fuelStation.vendorCode ?? ''}</span></span>
+        ) : (
+          <span style={{ color: 'var(--text-dim)' }}>—</span>
+        ),
+    },
+    {
       key: 'fuelQuantityLtr',
       header: 'Quantity',
       render: (row: FuelLog) => (
@@ -142,7 +152,7 @@ export default function FuelLogsPage() {
     return (
       <div className="flex flex-col gap-5">
         <PageHeader title="Fuel Logs" breadcrumbs={['Operations', 'Fuel Logs']} />
-        <SkeletonTable rows={8} cols={6} />
+        <SkeletonTable rows={8} cols={7} />
       </div>
     );
   }

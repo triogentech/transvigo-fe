@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getSelect, type SelectOption } from '../api/select.api';
 import { useTyres } from '../hooks/useTyres';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
@@ -34,8 +35,8 @@ const MOVEMENTS: { value: TyreMovementType; label: string }[] = [
 
 const healthColor = (pct: number): string => (pct >= 50 ? '#16A34A' : pct >= 20 ? '#D97706' : '#DC2626');
 
-interface FormState { serialNumber: string; brand: string; size: string; tyreType: 'new_tyre' | 'retread'; purchaseCost: string; expectedLifeKm: string }
-const EMPTY_FORM: FormState = { serialNumber: '', brand: '', size: '', tyreType: 'new_tyre', purchaseCost: '', expectedLifeKm: '80000' };
+interface FormState { serialNumber: string; brand: string; size: string; tyreType: 'new_tyre' | 'retread'; purchaseCost: string; expectedLifeKm: string; vendorId: string }
+const EMPTY_FORM: FormState = { serialNumber: '', brand: '', size: '', tyreType: 'new_tyre', purchaseCost: '', expectedLifeKm: '80000', vendorId: '' };
 
 interface MoveState { tyre: Tyre | null; movementType: TyreMovementType; vehicleId: string; position: string; odometerAtEvent: string }
 const EMPTY_MOVE: MoveState = { tyre: null, movementType: 'fitted', vehicleId: '', position: '', odometerAtEvent: '' };
@@ -46,6 +47,8 @@ export default function TyreHubPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [tyreVendors, setTyreVendors] = useState<SelectOption[]>([]);
+  useEffect(() => { void getSelect('vendors', { status: 'tyre_hub' }).then(setTyreVendors).catch(() => undefined); }, []);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -76,6 +79,7 @@ export default function TyreHubPage() {
         tyreType: form.tyreType,
         purchaseCost: form.purchaseCost ? Number(form.purchaseCost) : null,
         expectedLifeKm: form.expectedLifeKm ? Number(form.expectedLifeKm) : 80000,
+        vendorId: form.vendorId || null,
       };
       await createTyre(body);
       toast.success('Tyre registered');
@@ -110,6 +114,7 @@ export default function TyreHubPage() {
   const columns = [
     { key: 'serialNumber', header: 'Serial', render: (r: Tyre) => <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.serialNumber}</span> },
     { key: 'brand', header: 'Brand' },
+    { key: 'vendor', header: 'Vendor', render: (r: Tyre) => (r.vendor ? <span>{r.vendor.name} <span className="font-mono" style={{ color: 'var(--text-dim)' }}>· {r.vendor.vendorCode}</span></span> : <span style={{ color: 'var(--text-muted)' }}>—</span>) },
     { key: 'size', header: 'Size' },
     { key: 'currentStatus', header: 'Status', render: (r: Tyre) => <Pill color={STATUS_META[r.currentStatus].color}>{STATUS_META[r.currentStatus].label}</Pill> },
     { key: 'currentVehicle', header: 'On Vehicle', render: (r: Tyre) => r.currentVehicle?.vehicleNumber ?? (r.currentPosition ? `(${r.currentPosition})` : '—') },
@@ -203,6 +208,12 @@ export default function TyreHubPage() {
             <Field label="Brand *"><input className="tv-input w-full" value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="MRF / CEAT / JK" /></Field>
             <Field label="Size *"><input className="tv-input w-full" value={form.size} onChange={(e) => set('size', e.target.value)} placeholder="10.00 R20" /></Field>
           </div>
+          <Field label="Vendor (tyre hub vendor)">
+            <select className="tv-input w-full" value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
+              <option value="">— none —</option>
+              {tyreVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
+            </select>
+          </Field>
           <div className="flex gap-3">
             <Field label="Purchase Cost (₹)"><input className="tv-input w-full" type="number" value={form.purchaseCost} onChange={(e) => set('purchaseCost', e.target.value)} /></Field>
             <Field label="Expected Life (km)"><input className="tv-input w-full" type="number" value={form.expectedLifeKm} onChange={(e) => set('expectedLifeKm', e.target.value)} /></Field>

@@ -180,7 +180,7 @@ export default function MaintenancePage() {
   }
 
   const garageOptions = [
-    { value: '', label: 'All Garages' },
+    { value: '', label: 'All Vendors' },
     ...(filterOptions?.garages ?? []),
   ];
 

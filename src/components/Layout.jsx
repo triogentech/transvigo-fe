@@ -7,7 +7,7 @@ import {
   AlertTriangle, ArrowRight, BarChart3, Bell, Building2, CheckCircle2, CircleDot, ClipboardList, CreditCard, FileSearch,
   Fuel, Info, Landmark, LayoutDashboard, LogOut, MapPin, Moon, Package,
   PackageSearch, ReceiptText, Wallet, Route as RouteIcon, Search, ShieldCheck, Sun, Truck,
-  UserCog, Users, Warehouse, Wrench, Zap,
+  UserCog, Users, Warehouse, Wrench,
 } from 'lucide-react';
 import { TVAvatar, Popover } from './ui.jsx';
 import { ImpersonationBanner } from './ImpersonationBanner.tsx';
@@ -50,8 +50,7 @@ const NAV = [
   { group: 'MASTER DATA', items: [
     { label: 'Cities',          icon: Building2,   to: '/cities',          permission: 'cities' },
     { label: 'Load Providers',  icon: PackageSearch, to: '/load-providers', permission: 'load-providers' },
-    { label: 'Fuel Stations',   icon: Zap,         to: '/fuel-stations',   permission: 'fuel-stations' },
-    { label: 'Garages',         icon: Warehouse,   to: '/garages',         permission: 'garages' },
+    { label: 'Vendors',         icon: Warehouse,   to: '/vendors',         permission: 'spare-vendors' },
   ]},
   { group: 'ADMIN', items: [
     { label: 'Team',          icon: UserCog,    to: '/admin/users',  adminOnly: true },
