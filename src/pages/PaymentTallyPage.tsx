@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { getSelect, type SelectOption } from '../api/select.api';
-import { getTripBills, updateTripBill, generateMissingBills, type TripBillFilters } from '../api/trip-bills.api';
+import { getTripBills, updateTripBill, type TripBillFilters } from '../api/trip-bills.api';
 import type { TripBill, TripBillStatus, TripBillSummary } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
@@ -46,7 +46,6 @@ export default function PaymentTallyPage() {
   const [edit, setEdit] = useState<TripBill | null>(null);
   const [form, setForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,19 +99,6 @@ export default function PaymentTallyPage() {
     }
   };
 
-  const generate = async () => {
-    setGenerating(true);
-    try {
-      const { created } = await generateMissingBills();
-      toast.success(created ? `${created} bill${created === 1 ? '' : 's'} raised for completed trips` : 'Every completed trip already has a bill');
-      await load();
-    } catch (e) {
-      toast.error(errMessage(e));
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   const mono = (v: React.ReactNode) => <span className="font-mono">{v}</span>;
   const columns = [
     { key: 'invoiceNumber', header: 'Invoice No', render: (r: TripBill) => <span className="font-mono" style={{ color: 'var(--teal)' }}>{r.invoiceNumber}</span> },
@@ -154,11 +140,7 @@ export default function PaymentTallyPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        title="Payment Tally"
-        breadcrumbs={['Finance', 'Payment Tally']}
-        actions={canEdit ? <LoadingButton className="btn-ghost" loading={generating} onClick={generate}>Bill older completed trips</LoadingButton> : undefined}
-      />
+      <PageHeader title="Payment Tally" breadcrumbs={['Finance', 'Payment Tally']} />
 
       {error && <ErrorBanner message={error} onRetry={load} />}
 
