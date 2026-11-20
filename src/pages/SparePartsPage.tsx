@@ -85,6 +85,7 @@ export default function SparePartsPage() {
   };
 
   const [partVendors, setPartVendors] = useState<SelectOption[]>([]);
+  const [vendorTried, setVendorTried] = useState(false);
   useEffect(() => {
     void getSelect('job-cards').then(setJobCards).catch(() => undefined);
     void getSelect('garages').then(setGarages).catch(() => undefined);
@@ -120,6 +121,7 @@ export default function SparePartsPage() {
   const submit = async () => {
     if (!form.partNumber.trim() || !form.partName.trim() || !form.category.trim())
       return toast.error('Part number, name and category are required');
+    if (!form.vendorId) { setVendorTried(true); return toast.error('Select the spare parts vendor'); }
     setSubmitting(true);
     try {
       const body: CreateSparePartBody = {
@@ -130,7 +132,7 @@ export default function SparePartsPage() {
         currentStockQty: form.currentStockQty ? Number(form.currentStockQty) : 0,
         reorderLevel: form.reorderLevel ? Number(form.reorderLevel) : 0,
         unitCost: form.unitCost ? Number(form.unitCost) : 0,
-        vendorId: form.vendorId || null,
+        vendorId: form.vendorId,
       };
       await createSparePart(body);
       toast.success('Spare part added');
@@ -177,7 +179,7 @@ export default function SparePartsPage() {
         unitOfMeasure: editForm.unitOfMeasure.trim() || 'piece',
         reorderLevel: editForm.reorderLevel ? Number(editForm.reorderLevel) : 0,
         unitCost: editForm.unitCost ? Number(editForm.unitCost) : 0,
-        vendorId: editForm.vendorId || null,
+        ...(editForm.vendorId ? { vendorId: editForm.vendorId } : {}),
       });
       toast.success('Spare part updated');
       setEditPart(null);
@@ -292,7 +294,7 @@ export default function SparePartsPage() {
         breadcrumbs={['Workshop', 'Spare Parts']}
         actions={
           tab === 'catalog'
-            ? <button className="btn-brand" onClick={() => { setForm(EMPTY_FORM); setOpen(true); }}>+ Add Part</button>
+            ? <button className="btn-brand" onClick={() => { setForm(EMPTY_FORM); setVendorTried(false); setOpen(true); }}>+ Add Part</button>
             : <button className="btn-brand" onClick={() => { setSlip(EMPTY_SLIP); setSlipOpen(true); }}>+ Issue Slip</button>
         }
       />
@@ -344,11 +346,13 @@ export default function SparePartsPage() {
           <div className="flex gap-3">
             <Field label="Reorder Level"><input className="tv-input w-full" type="number" value={form.reorderLevel} onChange={(e) => set('reorderLevel', e.target.value)} placeholder="0" /></Field>
             <Field label="Unit Cost (₹)"><input className="tv-input w-full" type="number" value={form.unitCost} onChange={(e) => set('unitCost', e.target.value)} placeholder="0" /></Field>
-            <Field label="Vendor (spare parts vendor)">
-              <select className="tv-input w-full" value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
-                <option value="">— none —</option>
+            <Field label="Vendor (spare parts vendor) *">
+              <select className="tv-input w-full" style={!form.vendorId && vendorTried ? { borderColor: 'var(--danger)' } : undefined} value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
+                <option value="">Select spare parts vendor</option>
                 {partVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
               </select>
+              {!form.vendorId && vendorTried && <div role="alert" style={{ marginTop: 5, fontSize: 12, color: 'var(--danger)' }}>Select the spare parts vendor.</div>}
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-dim)' }}>Not in the list? Add it on the <a href="/vendors" style={{ color: 'var(--teal)' }}>Vendors</a> page.</div>
             </Field>
           </div>
         </div>
@@ -499,7 +503,7 @@ export default function SparePartsPage() {
           <Field label="Unit Cost (₹)"><input className="tv-input w-full" type="number" value={editForm.unitCost} onChange={(e) => setE('unitCost', e.target.value)} /></Field>
             <Field label="Vendor (spare parts vendor)">
               <select className="tv-input w-full" value={editForm.vendorId} onChange={(e) => setE('vendorId', e.target.value)}>
-                <option value="">— none —</option>
+                <option value="">{editForm.vendorId ? '' : 'Select spare parts vendor'}</option>
                 {partVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
               </select>
             </Field>

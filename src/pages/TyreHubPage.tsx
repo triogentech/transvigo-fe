@@ -48,6 +48,7 @@ export default function TyreHubPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [tyreVendors, setTyreVendors] = useState<SelectOption[]>([]);
+  const [vendorTried, setVendorTried] = useState(false);
   useEffect(() => { void getSelect('vendors', { status: 'tyre_hub' }).then(setTyreVendors).catch(() => undefined); }, []);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
@@ -70,6 +71,7 @@ export default function TyreHubPage() {
   const submit = async () => {
     if (!form.serialNumber.trim() || !form.brand.trim() || !form.size.trim())
       return toast.error('Serial, brand and size are required');
+    if (!form.vendorId) { setVendorTried(true); return toast.error('Select the tyre hub vendor'); }
     setSubmitting(true);
     try {
       const body: CreateTyreBody = {
@@ -170,7 +172,7 @@ export default function TyreHubPage() {
       <PageHeader
         title="Tyre Hub"
         breadcrumbs={['Workshop', 'Tyre Hub']}
-        actions={<button className="btn-brand" onClick={() => { setForm(EMPTY_FORM); setOpen(true); }}>+ Register Tyre</button>}
+        actions={<button className="btn-brand" onClick={() => { setForm(EMPTY_FORM); setVendorTried(false); setOpen(true); }}>+ Register Tyre</button>}
       />
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
@@ -208,11 +210,13 @@ export default function TyreHubPage() {
             <Field label="Brand *"><input className="tv-input w-full" value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="MRF / CEAT / JK" /></Field>
             <Field label="Size *"><input className="tv-input w-full" value={form.size} onChange={(e) => set('size', e.target.value)} placeholder="10.00 R20" /></Field>
           </div>
-          <Field label="Vendor (tyre hub vendor)">
-            <select className="tv-input w-full" value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
-              <option value="">— none —</option>
+          <Field label="Vendor (tyre hub vendor) *">
+            <select className="tv-input w-full" style={!form.vendorId && vendorTried ? { borderColor: 'var(--danger)' } : undefined} value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
+              <option value="">Select tyre hub vendor</option>
               {tyreVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
             </select>
+            {!form.vendorId && vendorTried && <div role="alert" style={{ marginTop: 5, fontSize: 12, color: 'var(--danger)' }}>Select the tyre hub vendor.</div>}
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-dim)' }}>Not in the list? Add it on the <a href="/vendors" style={{ color: 'var(--teal)' }}>Vendors</a> page (type: Tyre hub vendor).</div>
           </Field>
           <div className="flex gap-3">
             <Field label="Purchase Cost (₹)"><input className="tv-input w-full" type="number" value={form.purchaseCost} onChange={(e) => set('purchaseCost', e.target.value)} /></Field>
