@@ -19,7 +19,7 @@ import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
 import { getSelect, clearSelectCache } from '../api/select.api.ts';
-import { createTrip as apiCreateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip } from '../api/trips.api.ts';
+import { createTrip as apiCreateTrip, updateTrip as apiUpdateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip } from '../api/trips.api.ts';
 import { errMessage } from '../api/client.ts';
 
 // ── User preferences (persisted in localStorage) ──
@@ -204,6 +204,96 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
 }
 
 // ── CreateTripModal ──
+/**
+ * Edit the few details operations may change while a trip is under way: freight, advance, estimated end
+ * time (the duration follows from it) and distance. Route, driver, vehicle and vendor are fixed once
+ * the trip is created; a completed trip cannot be edited.
+ */
+function EditTripModal({ trip, onClose, onSaved }) {
+  const toast = useToast();
+  const [form, setForm] = useState({ freight: '', advance: '', estEnd: '', distance: '' });
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!trip) return;
+    setForm({
+      freight: String(trip.freightTotalAmount ?? 0),
+      advance: String(trip.advanceAmount ?? 0),
+      estEnd: trip.estimatedEndTime ? toDatetimeLocalValue(new Date(trip.estimatedEndTime)) : '',
+      distance: String(trip.totalTripDistanceKm ?? 0),
+    });
+  }, [trip]);
+  if (!trip) return null;
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const inputStyle = { background: 'var(--navy-base)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '7px 10px', borderRadius: 4, width: '100%', fontSize: 13, outline: 'none' };
+  const labelStyle = { fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' };
+
+  async function save() {
+    const freight = Number(form.freight);
+    const advance = Number(form.advance);
+    if (!Number.isFinite(freight) || freight < 0 || !Number.isFinite(advance) || advance < 0) {
+      toast({ title: 'Check the amounts', description: 'Freight and advance must be zero or more.', color: 'var(--danger)' });
+      return;
+    }
+    const end = form.estEnd ? new Date(form.estEnd) : null;
+    const start = new Date(trip.estimatedStartTime);
+    if (end && end <= start) {
+      toast({ title: 'Check the end time', description: 'The estimated end must be after the estimated start.', color: 'var(--danger)' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiUpdateTrip(trip.id, {
+        freightTotalAmount: Math.round(freight),
+        advanceAmount: Math.round(advance),
+        totalTripDistanceKm: Math.round(Number(form.distance) || 0),
+        ...(end ? { estimatedEndTime: end.toISOString(), totalTripTimeMinutes: Math.round((end - start) / 60000) } : {}),
+      });
+      toast({ title: 'Trip updated', description: `${trip.tripNumber} saved`, color: 'var(--teal)', icon: <CheckCircle2 size={16} style={{ color: 'var(--teal)', flexShrink: 0 }} /> });
+      onSaved();
+    } catch (e) {
+      toast({ title: 'Could not update', description: errMessage(e), color: 'var(--danger)' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => { if (!o && !saving) onClose(); }}
+      width={480}
+      title={`Edit trip ${trip.tripNumber}`}
+      footer={<LoadingButton className="btn-brand px-4 py-1.5" loading={saving} onClick={save}>Save</LoadingButton>}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {trip.startPoint} → {trip.endPoint} · {trip.currentStatus === 'in_transit' ? 'In transit' : 'Not started'}. Route, driver, vehicle and vendor can't be changed here.
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Freight (₹)</label>
+            <input style={inputStyle} className="font-mono" type="number" min="0" value={form.freight} onChange={(e) => set('freight', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Advance (₹)</label>
+            <input style={inputStyle} className="font-mono" type="number" min="0" value={form.advance} onChange={(e) => set('advance', e.target.value)} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Estimated end</label>
+            <input style={inputStyle} type="datetime-local" value={form.estEnd} onChange={(e) => set('estEnd', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Distance (km)</label>
+            <input style={inputStyle} className="font-mono" type="number" min="0" value={form.distance} onChange={(e) => set('distance', e.target.value)} />
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadProviders }) {
   const toast = useToast();
   const [step, setStep] = useState(1);
@@ -983,6 +1073,7 @@ export default function Trips() {
 
   // Complete-trip state — captures the user-fed actual end time.
   const [completeTrip, setCompleteTrip] = useState(null);
+  const [editTrip, setEditTrip] = useState(null);
   const [completeTime, setCompleteTime] = useState('');
   const [completing, setCompleting] = useState(false);
 
@@ -1252,6 +1343,9 @@ export default function Trips() {
             }
           >
             <MenuItem onSelect={() => openDetail(row)}>View Details</MenuItem>
+            {row.currentStatus !== 'completed' && (
+              <MenuItem onSelect={() => setEditTrip(row)}>Edit freight &amp; details</MenuItem>
+            )}
             <MenuLabel>Status</MenuLabel>
             {row.currentStatus === 'created' && (
               <MenuItem onSelect={() => handleMarkInTransit(row)}>
@@ -1402,6 +1496,9 @@ export default function Trips() {
           />
         </div>
       )}
+
+      {/* Edit Trip — the few details operations may change in between a trip */}
+      <EditTripModal trip={editTrip} onClose={() => setEditTrip(null)} onSaved={() => { setEditTrip(null); void refetch(); }} />
 
       {/* Create Trip Modal */}
       <CreateTripModal
