@@ -28,10 +28,11 @@ const fmtD = (s?: string | null): string => (s ? new Date(s).toLocaleDateString(
 interface FormState {
   partNumber: string; partName: string; category: string;
   unitOfMeasure: string; currentStockQty: string; reorderLevel: string; unitCost: string;
+  vendorId: string;
 }
 const EMPTY_FORM: FormState = {
   partNumber: '', partName: '', category: '', unitOfMeasure: 'piece',
-  currentStockQty: '', reorderLevel: '', unitCost: '',
+  currentStockQty: '', reorderLevel: '', unitCost: '', vendorId: '',
 };
 
 interface AdjState { part: SparePart | null; adjustmentType: 'add' | 'remove'; qty: string; reason: string }
@@ -83,10 +84,12 @@ export default function SparePartsPage() {
     finally { setSlipsLoading(false); }
   };
 
+  const [partVendors, setPartVendors] = useState<SelectOption[]>([]);
   useEffect(() => {
     void getSelect('job-cards').then(setJobCards).catch(() => undefined);
     void getSelect('garages').then(setGarages).catch(() => undefined);
     void getSelect('spare-vendors').then(setVendors).catch(() => undefined);
+    void getSelect('vendors', { status: 'spare_parts' }).then(setPartVendors).catch(() => undefined);
   }, []);
   useEffect(() => { if (tab === 'slips') void loadSlips(); /* eslint-disable-next-line */ }, [tab]);
 
@@ -127,6 +130,7 @@ export default function SparePartsPage() {
         currentStockQty: form.currentStockQty ? Number(form.currentStockQty) : 0,
         reorderLevel: form.reorderLevel ? Number(form.reorderLevel) : 0,
         unitCost: form.unitCost ? Number(form.unitCost) : 0,
+        vendorId: form.vendorId || null,
       };
       await createSparePart(body);
       toast.success('Spare part added');
@@ -156,6 +160,7 @@ export default function SparePartsPage() {
       currentStockQty: String(p.currentStockQty),
       reorderLevel: String(p.reorderLevel),
       unitCost: String(p.unitCost),
+      vendorId: p.vendor?.id ?? p.vendorId ?? '',
     });
     setEditPart(p);
   };
@@ -172,6 +177,7 @@ export default function SparePartsPage() {
         unitOfMeasure: editForm.unitOfMeasure.trim() || 'piece',
         reorderLevel: editForm.reorderLevel ? Number(editForm.reorderLevel) : 0,
         unitCost: editForm.unitCost ? Number(editForm.unitCost) : 0,
+        vendorId: editForm.vendorId || null,
       });
       toast.success('Spare part updated');
       setEditPart(null);
@@ -245,6 +251,7 @@ export default function SparePartsPage() {
     { key: 'partNumber', header: 'Part #', render: (r: SparePart) => <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.partNumber}</span> },
     { key: 'partName', header: 'Name' },
     { key: 'category', header: 'Category' },
+    { key: 'vendor', header: 'Vendor', render: (r: SparePart) => (r.vendor ? <span>{r.vendor.vendorName} <span className="font-mono" style={{ color: 'var(--text-dim)' }}>· {r.vendor.vendorCode}</span></span> : <span style={{ color: 'var(--text-muted)' }}>—</span>) },
     {
       key: 'stock', header: 'In Stock',
       render: (r: SparePart) => (
@@ -337,6 +344,12 @@ export default function SparePartsPage() {
           <div className="flex gap-3">
             <Field label="Reorder Level"><input className="tv-input w-full" type="number" value={form.reorderLevel} onChange={(e) => set('reorderLevel', e.target.value)} placeholder="0" /></Field>
             <Field label="Unit Cost (₹)"><input className="tv-input w-full" type="number" value={form.unitCost} onChange={(e) => set('unitCost', e.target.value)} placeholder="0" /></Field>
+            <Field label="Vendor (spare parts vendor)">
+              <select className="tv-input w-full" value={form.vendorId} onChange={(e) => set('vendorId', e.target.value)}>
+                <option value="">— none —</option>
+                {partVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
+              </select>
+            </Field>
           </div>
         </div>
       </Modal>
@@ -484,6 +497,12 @@ export default function SparePartsPage() {
             <Field label="Reorder Level"><input className="tv-input w-full" type="number" value={editForm.reorderLevel} onChange={(e) => setE('reorderLevel', e.target.value)} /></Field>
           </div>
           <Field label="Unit Cost (₹)"><input className="tv-input w-full" type="number" value={editForm.unitCost} onChange={(e) => setE('unitCost', e.target.value)} /></Field>
+            <Field label="Vendor (spare parts vendor)">
+              <select className="tv-input w-full" value={editForm.vendorId} onChange={(e) => setE('vendorId', e.target.value)}>
+                <option value="">— none —</option>
+                {partVendors.map((v) => (<option key={v.value} value={v.value}>{v.label}</option>))}
+              </select>
+            </Field>
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Stock ({num(editForm.currentStockQty)}) is changed via “Adjust”.</div>
         </div>
       </Modal>

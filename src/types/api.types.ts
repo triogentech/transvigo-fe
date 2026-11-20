@@ -215,7 +215,7 @@ export interface CreateTransactionBody {
 // ── Fuel Station ──
 export interface FuelStation {
   id: string; orgId: string; cityId?: string;
-  name: string; isActive: boolean; city?: City;
+  name: string; vendorCode?: string; isActive: boolean; city?: City;
   createdAt: string; updatedAt: string;
 }
 export interface CreateFuelStationBody { name: string; isActive?: boolean; cityId?: string }
@@ -474,10 +474,14 @@ export interface SparePart {
   totalStockValue: string | number;
   isActive: boolean;
   createdAt: string;
+  /** The spare parts vendor this part is bought from. */
+  vendor?: { id: string; vendorName: string; vendorCode: string } | null;
+  vendorId?: string | null;
   /** Populated only by the get-by-id (detail) endpoint. */
   usages?: SparePartUsage[];
 }
 export interface CreateSparePartBody {
+  vendorId?: string | null;
   partNumber: string;
   partName: string;
   category: string;
@@ -516,9 +520,13 @@ export interface Tyre {
   removedAtOdometer?: number | null;
   purchaseCost?: string | number | null;
   notes?: string | null;
+  /** The tyre hub vendor it was bought from. */
+  vendor?: { id: string; name: string; vendorCode: string } | null;
+  vendorId?: string | null;
   createdAt: string;
 }
 export interface CreateTyreBody {
+  vendorId?: string | null;
   serialNumber: string;
   brand: string;
   size: string;

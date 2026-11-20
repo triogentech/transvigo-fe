@@ -66,7 +66,7 @@ function moduleName(slug) {
     staff: 'Staff',
     transactions: 'Transactions',
     'toll-logs': 'Toll Logs',
-    'fuel-stations': 'Fuel Stations',
+    'fuel-stations': 'Fuel station vendors',
     'fuel-logs': 'Fuel Logs',
     garages: 'Garage / workshop vendors',
     'garage-logs': 'Maintenance / Work Orders',

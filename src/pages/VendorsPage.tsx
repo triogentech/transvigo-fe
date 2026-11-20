@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { matchesSearch } from '../lib/clientList';
-import { getVendors, createVendor, updateVendor, deleteGarage, type Vendor, type ManagedVendorType } from '../api/vendors.api';
+import { getVendors, createVendor, updateVendor, deleteVendor, canDelete, type Vendor, type ManagedVendorType } from '../api/vendors.api';
 import { clearSelectCache } from '../api/select.api';
 import { ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
@@ -19,7 +19,15 @@ const TVSwitch: React.FC<any> = UI.TVSwitch;
 const TYPES: Array<{ value: ManagedVendorType; label: string; prefix: string }> = [
   { value: 'garage', label: 'Garage / workshop', prefix: 'WS' },
   { value: 'spare_parts', label: 'Spare parts vendor', prefix: 'SP' },
+  { value: 'fuel_station', label: 'Fuel station vendor', prefix: 'FS' },
+  { value: 'tyre_hub', label: 'Tyre hub vendor', prefix: 'TH' },
 ];
+const TYPE_COLOR: Record<string, string> = {
+  garage: 'var(--accent-teal)',
+  spare_parts: 'var(--warning)',
+  fuel_station: 'var(--info, #2563EB)',
+  tyre_hub: 'var(--purple, #7C3AED)',
+};
 const typeLabel = (t: string): string => TYPES.find((x) => x.value === t)?.label ?? t;
 
 interface FormState {
@@ -35,7 +43,7 @@ const EMPTY_FORM: FormState = { type: 'garage', name: '', vendorCode: '', contac
 
 const inr = (v: number): string => `₹${Number(v).toLocaleString('en-IN')}`;
 
-/** Vendors: garages / workshops and spare parts vendors, each with a vendor code. */
+/** Vendors: garages / workshops, spare parts, fuel station and tyre hub vendors, each with a vendor code. */
 export default function VendorsPage() {
   const toast = useToast();
   const [all, setAll] = useState<Vendor[]>([]);
@@ -104,7 +112,7 @@ export default function VendorsPage() {
     if (!delRow) return;
     setDelBusy(true);
     try {
-      await deleteGarage(delRow.id);
+      await deleteVendor(delRow);
       toast.success('Vendor deleted');
       clearSelectCache();
       setDelRow(null);
@@ -119,7 +127,7 @@ export default function VendorsPage() {
   const columns = [
     { key: 'vendorCode', header: 'Vendor Code', render: (r: Vendor) => <span className="font-mono">{r.vendorCode}</span> },
     { key: 'name', header: 'Name' },
-    { key: 'type', header: 'Type', render: (r: Vendor) => <Pill color={r.type === 'garage' ? 'var(--accent-teal)' : 'var(--warning)'}>{typeLabel(r.type)}</Pill> },
+    { key: 'type', header: 'Type', render: (r: Vendor) => <Pill color={TYPE_COLOR[r.type] ?? 'var(--text-muted)'}>{typeLabel(r.type)}</Pill> },
     { key: 'contactPerson', header: 'Contact', render: (r: Vendor) => r.contactPerson ?? '—' },
     { key: 'contactNumber', header: 'Phone', render: (r: Vendor) => <span className="font-mono">{r.contactNumber ?? '—'}</span> },
     {
@@ -135,7 +143,7 @@ export default function VendorsPage() {
       render: (r: Vendor) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-          {r.type === 'garage' && <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(r)}>Delete</button>}
+          {canDelete(r.type) && <button className="btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDelRow(r)}>Delete</button>}
         </div>
       ),
     },
@@ -184,7 +192,7 @@ export default function VendorsPage() {
           </div>
           <div>
             {label('Name')}
-            <input className="tv-input w-full" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={form.type === 'garage' ? 'Garage / workshop name' : 'Spare parts vendor name'} />
+            <input className="tv-input w-full" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={`${typeLabel(form.type)} name`} />
           </div>
           <div>
             {label('Vendor Code')}
@@ -220,7 +228,7 @@ export default function VendorsPage() {
         footer={<LoadingButton className="btn-brand" loading={delBusy} onClick={confirmDelete} style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>Delete</LoadingButton>}
       >
         <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          Delete <b>{delRow?.name}</b>? This can’t be undone. Job cards and slips referencing this vendor will keep their data but lose the vendor reference. To keep the history, mark the vendor Inactive instead.
+          Delete <b>{delRow?.name}</b>? This can’t be undone. Job cards, slips and fuel logs referencing this vendor will keep their data but lose the vendor reference. To keep the history, mark the vendor Inactive instead.
         </div>
       </Modal>
     </div>
