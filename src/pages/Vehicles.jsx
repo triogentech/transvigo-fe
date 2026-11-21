@@ -1,6 +1,6 @@
 // API CALLS: 1 (GET /api/pages/vehicles) + lazy detail + mutations
 import React, { useState, useEffect } from 'react';
-import { Plus, AlertTriangle, Eye, Link2, Pencil, MoreVertical } from 'lucide-react';
+import { Plus, AlertTriangle, Eye, Link2, Pencil, MoreVertical, Power } from 'lucide-react';
 import {
   Card, PageHeader, StatusBadge, TVProgress, TVTooltip, SegmentTabs,
   DataTable, Modal, TVSelect, Menu, MenuItem,
@@ -70,12 +70,25 @@ function ComplianceSection({ vehicle }) {
   );
 }
 
+// ── "Inactive" badge for deactivated vehicles (sold / scrapped / off the road) ──
+function InactiveBadge() {
+  return (
+    <span
+      className="font-mono"
+      style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--text-muted)', background: 'var(--bg-elevated, rgba(120,120,120,0.15))', border: '1px solid var(--border)', borderRadius: 3, padding: '2px 7px', textTransform: 'uppercase' }}
+    >
+      Inactive
+    </span>
+  );
+}
+
 // ── Vehicle Grid Card ──
-function VehicleCard({ vehicle, onView, onEdit, onAssign }) {
+function VehicleCard({ vehicle, onView, onEdit, onAssign, onToggleActive }) {
+  const inactive = vehicle.isActive === false;
   return (
     <Card
       streak={vehicle.currentStatus === 'in_transit'}
-      style={statusStripStyle(vehicle.currentStatus)}
+      style={{ ...statusStripStyle(vehicle.currentStatus), ...(inactive ? { opacity: 0.6 } : {}) }}
       className="p-0 flex flex-col"
     >
       {/* Header */}
@@ -104,7 +117,7 @@ function VehicleCard({ vehicle, onView, onEdit, onAssign }) {
             </span>
           </div>
         </div>
-        <StatusBadge status={vehicle.currentStatus} />
+        {inactive ? <InactiveBadge /> : <StatusBadge status={vehicle.currentStatus} />}
       </div>
 
       {/* Body */}
@@ -151,7 +164,8 @@ function VehicleCard({ vehicle, onView, onEdit, onAssign }) {
         {[
           { label: 'View', icon: Eye, onClick: () => onView(vehicle) },
           { label: 'Edit', icon: Pencil, onClick: () => onEdit(vehicle) },
-          { label: 'Assign', icon: Link2, onClick: () => onAssign(vehicle) },
+          ...(inactive ? [] : [{ label: 'Assign', icon: Link2, onClick: () => onAssign(vehicle) }]),
+          { label: inactive ? 'Activate' : 'Deactivate', icon: Power, onClick: () => onToggleActive(vehicle) },
         ].map(({ label, icon: Icon, onClick }) => (
           <button
             key={label}
@@ -201,7 +215,7 @@ function DocDateCell({ iso }) {
 }
 
 // ── Table columns ──
-function makeColumns({ onView, onEdit, onAssign }) {
+function makeColumns({ onView, onEdit, onAssign, onToggleActive }) {
   return [
   {
     key: 'vehicleNumber',
@@ -234,7 +248,7 @@ function makeColumns({ onView, onEdit, onAssign }) {
     key: 'currentStatus',
     header: 'Status',
     width: 110,
-    render: (row) => <StatusBadge status={row.currentStatus} />,
+    render: (row) => (row.isActive === false ? <InactiveBadge /> : <StatusBadge status={row.currentStatus} />),
   },
   {
     key: 'currentDriver',
@@ -304,7 +318,8 @@ function makeColumns({ onView, onEdit, onAssign }) {
       >
         <MenuItem icon={Eye} onSelect={() => onView(row)}>View</MenuItem>
         <MenuItem icon={Pencil} onSelect={() => onEdit(row)}>Edit</MenuItem>
-        <MenuItem icon={Link2} onSelect={() => onAssign(row)}>Assign</MenuItem>
+        {row.isActive !== false && <MenuItem icon={Link2} onSelect={() => onAssign(row)}>Assign</MenuItem>}
+        <MenuItem icon={Power} onSelect={() => onToggleActive(row)}>{row.isActive === false ? 'Activate' : 'Deactivate'}</MenuItem>
       </Menu>
     ),
   },
@@ -391,7 +406,7 @@ function VehicleFormModal({ open, onOpenChange, vehicle, createVehicle, updateVe
         permitDate: form.permitDate,
         puccDate: form.puccDate,
         npValidUpto: form.npValidUpto,
-        isActive: true,
+        ...(isEdit ? {} : { isActive: true }), // editing never changes whether a vehicle is active
       };
       if (isEdit) {
         // a detail that is still blank is left out (it can be filled in later), not sent as an empty value
@@ -668,8 +683,9 @@ function AssignDriverModal({ vehicle, onClose, updateVehicle, refetch }) {
 
 // ── Main Page ──
 export default function Vehicles() {
-  const { vehicles, meta, loading, error, filters, setFilters, refetch } = useVehiclesPage();
+  const { vehicles, meta, summary, loading, error, filters, setFilters, refetch } = useVehiclesPage();
   const { createVehicle, updateVehicle } = useVehiclesActions();
+  const toast = useToast();
   const [view, setView] = useState('grid');
   const [formOpen, setFormOpen] = useState(false);
   const [formVehicle, setFormVehicle] = useState(null);
@@ -680,6 +696,17 @@ export default function Vehicles() {
   const onView = (v) => setViewVehicle(v);
   const onEdit = (v) => { setFormVehicle(v); setFormOpen(true); };
   const onAssign = (v) => setAssignVehicle(v);
+  const onToggleActive = async (v) => {
+    const turnOff = v.isActive !== false;
+    if (turnOff && !window.confirm(`Deactivate ${v.vehicleNumber}? It will be hidden from trip assignment. Its trips and history stay.`)) return;
+    try {
+      await updateVehicle(v.id, { isActive: !turnOff });
+      toast.success(turnOff ? `${v.vehicleNumber} deactivated` : `${v.vehicleNumber} activated`);
+      refetch();
+    } catch (err) {
+      toast.error(errMessage(err, 'Could not change the vehicle'));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5 animate-fadeIn">
@@ -709,6 +736,17 @@ export default function Vehicles() {
         placeholder="Search vehicles…"
       />
 
+      {/* Active / inactive filter */}
+      <SegmentTabs
+        tabs={[
+          { value: 'all', label: 'All' },
+          { value: 'active', label: 'Active' },
+          { value: 'inactive', label: `Inactive${summary?.inactive ? ` (${summary.inactive})` : ''}` },
+        ]}
+        value={filters.active ?? 'all'}
+        onValueChange={(v) => setFilters({ active: v === 'all' ? undefined : v, page: 1 })}
+      />
+
       {/* 3) View Toggle */}
       <SegmentTabs
         tabs={[
@@ -726,7 +764,7 @@ export default function Vehicles() {
           : (
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
               {vehicles.map((v) => (
-                <VehicleCard key={v.id} vehicle={v} onView={onView} onEdit={onEdit} onAssign={onAssign} />
+                <VehicleCard key={v.id} vehicle={v} onView={onView} onEdit={onEdit} onAssign={onAssign} onToggleActive={onToggleActive} />
               ))}
             </div>
           )
@@ -738,7 +776,7 @@ export default function Vehicles() {
           ? <SkeletonTable rows={8} cols={makeColumns({}).length} />
           : (
             <DataTable
-              columns={makeColumns({ onView, onEdit, onAssign })}
+              columns={makeColumns({ onView, onEdit, onAssign, onToggleActive })}
               data={vehicles}
               pageSize={filters.pageSize ?? 10}
               rowClassName={(row) => (row.currentStatus === 'in_transit' ? 'motion-streak' : '')}
