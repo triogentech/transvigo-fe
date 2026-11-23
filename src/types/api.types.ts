@@ -146,10 +146,12 @@ export interface LoadProvider {
   countryDialCode: string; contactNumber: string; isActive: boolean;
   /** Whether GST / TDS apply to this company's bills. */
   gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number | string;
+  /** Late-delivery penalty in rupees per hour beyond the TAT. */
+  penaltyPerHour?: number | string;
   city?: City; createdAt: string; updatedAt: string;
 }
 export interface CreateLoadProviderBody {
-  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number;
+  gstApplicable?: boolean; tdsApplicable?: boolean; gstRate?: number; penaltyPerHour?: number;
   name: string; shortName?: string; countryDialCode?: string;
   contactNumber: string; isActive?: boolean; cityId?: string;
   /** Optional: your own vendor code. Left out, one is generated (LP-0001). */
@@ -158,14 +160,21 @@ export interface CreateLoadProviderBody {
 
 // ── Trip ──
 export type TripStatus = 'created' | 'in_transit' | 'completed';
-export interface TouchingLocation { id: string; tripId: string; name?: string; sequence: number }
+export interface TouchingLocation { id: string; tripId: string; name?: string; sequence: number; inTime?: string | null; outTime?: string | null }
+export type ApprovalState = 'approved' | 'pending' | 'needs_changes';
 export interface Trip {
   id: string; orgId: string; tripNumber: string;
   startPoint: string; endPoint: string;
   startPointCoords?: Record<string, unknown>; endPointCoords?: Record<string, unknown>;
-  estimatedStartTime: string; estimatedEndTime: string; actualEndTime?: string;
+  estimatedStartTime: string; estimatedEndTime: string; actualEndTime?: string; actualStartTime?: string | null;
   totalTripTimeMinutes: number; totalTripDistanceKm: number;
   currentStatus: TripStatus;
+  /** Driver-created / driver-closed trips wait for operations (see approval states). */
+  createdByDriver?: boolean; startApproval?: ApprovalState; closeApproval?: ApprovalState; approvalNote?: string | null;
+  startOdometer?: number | null; endOdometer?: number | null;
+  startOdometerPhotoUrl?: string | null; endOdometerPhotoUrl?: string | null; tripSheetPhotoUrl?: string | null; arrivalReportUrl?: string | null;
+  /** Minutes at touching points, minutes over the TAT after halts, and the resulting penalty (rupees). */
+  haltMinutes?: number; delayMinutes?: number; penaltyPerHour?: number | string | null; penaltyAmount?: number;
   freightTotalAmount: number; advanceAmount: number;
   vendorCode?: string; vendorName?: string;
   isTouchingLocationAvailable: boolean; touchingLocations?: TouchingLocation[];
@@ -186,7 +195,9 @@ export interface CreateTripBody {
   vendorCode?: string; vendorName?: string;
   driverId?: string; vehicleId?: string; loadProviderId?: string;
   isTouchingLocationAvailable?: boolean;
-  touchingLocations?: Array<{ name?: string; sequence: number }>;
+  touchingLocations?: Array<{ name?: string; sequence: number; inTime?: string | null; outTime?: string | null }>;
+  /** Editable by operations on a running / closed trip. */
+  actualStartTime?: string | null; actualEndTime?: string | null;
 }
 
 // ── Transaction ──

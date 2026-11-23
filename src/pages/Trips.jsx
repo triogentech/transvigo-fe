@@ -19,7 +19,7 @@ import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
 import { getSelect, clearSelectCache } from '../api/select.api.ts';
-import { createTrip as apiCreateTrip, updateTrip as apiUpdateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip } from '../api/trips.api.ts';
+import { createTrip as apiCreateTrip, updateTrip as apiUpdateTrip, updateTripStatus as apiUpdateTripStatus, deleteTrip as apiDeleteTrip, decideTripApproval } from '../api/trips.api.ts';
 import { errMessage } from '../api/client.ts';
 
 // ── User preferences (persisted in localStorage) ──
@@ -209,27 +209,151 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
  * time (the duration follows from it) and distance. Route, driver, vehicle and vendor are fixed once
  * the trip is created; a completed trip cannot be edited.
  */
-function EditTripModal({ trip, onClose, onSaved }) {
+// ── Driver-created / driver-closed trips: what operations still have to approve ──
+const fmtHM = (min) => `${Math.floor((min || 0) / 60)}h ${String((min || 0) % 60).padStart(2, '0')}m`;
+const pendingStage = (t) => {
+  if (t.startApproval && t.startApproval !== 'approved') return 'start';
+  if (t.closeApproval && t.closeApproval !== 'approved' && t.currentStatus === 'completed') return 'close';
+  return null;
+};
+
+function ApprovalChip({ trip }) {
+  const stage = pendingStage(trip);
+  if (!stage) return null;
+  const sentBack = (stage === 'start' ? trip.startApproval : trip.closeApproval) === 'needs_changes';
+  const text = sentBack ? 'SENT BACK' : stage === 'start' ? 'APPROVE TRIP' : 'APPROVE CLOSURE';
+  return (
+    <span title={sentBack ? (trip.approvalNote || 'Sent back to the driver') : 'Created / closed by the driver, waiting for operations'}
+      style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: sentBack ? 'var(--danger)' : 'var(--warning, #d97706)', borderRadius: 999, padding: '1px 7px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+      {text}
+    </span>
+  );
+}
+
+/** Operations' note when they send a trip back to the driver. */
+function SendBackModal({ target, onClose, onDone }) {
   const toast = useToast();
-  const [form, setForm] = useState({ freight: '', advance: '', estEnd: '', distance: '' });
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setNote(''); }, [target]);
+  if (!target) return null;
+  async function send() {
+    if (!note.trim()) { toast({ title: 'Add a note', description: 'Say what needs changing.', color: 'var(--danger)' }); return; }
+    setBusy(true);
+    try {
+      await decideTripApproval({ tripIds: [target.trip.id], stage: target.stage, decision: 'needs_changes', note: note.trim() });
+      toast({ title: 'Sent back', description: `${target.trip.tripNumber}: the driver has been told.`, color: 'var(--teal)' });
+      onDone();
+    } catch (e) {
+      toast({ title: 'Could not send back', description: errMessage(e), color: 'var(--danger)' });
+    } finally { setBusy(false); }
+  }
+  return (
+    <Modal open onOpenChange={(o) => { if (!o && !busy) onClose(); }} width={440} title={`Send back ${target.trip.tripNumber}`}
+      footer={<LoadingButton className="btn-brand px-4 py-1.5" loading={busy} onClick={send}>Send back</LoadingButton>}>
+      <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>What needs changing?</label>
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={500}
+        style={{ background: 'var(--navy-base)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '7px 10px', borderRadius: 4, width: '100%', fontSize: 13, outline: 'none' }}
+        placeholder="e.g. The arrival report is blurred, please upload it again" />
+    </Modal>
+  );
+}
+
+/** What the driver reported, what the system worked out, and the approval buttons. */
+function TripFlowCard({ trip, onApprove, onSendBack }) {
+  const stage = pendingStage(trip);
+  const rate = Number(trip.penaltyPerHour ?? 0);
+  const links = [
+    ['Trip sheet', trip.tripSheetPhotoUrl], ['Arrival report', trip.arrivalReportUrl],
+    ['Start odometer photo', trip.startOdometerPhotoUrl], ['End odometer photo', trip.endOdometerPhotoUrl],
+  ].filter(([, u]) => u);
+  const pts = (trip.touchingLocations ?? []).slice().sort((a, b) => a.sequence - b.sequence);
+  const fact = (label, value) => (
+    <div><div style={{ color: 'var(--text-dim)' }}>{label}</div><div className="font-mono" style={{ color: 'var(--text-primary)', marginTop: 2 }}>{value}</div></div>
+  );
+  if (!stage && !trip.createdByDriver && !trip.actualStartTime && links.length === 0 && pts.every((p) => !p.inTime)) return null;
+  return (
+    <div className="tv-card-flat" style={{ padding: 14, marginBottom: 12, borderLeft: stage ? '3px solid var(--warning, #d97706)' : undefined }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-dim)', marginBottom: 8 }}>Driver trip record</div>
+      {stage && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+            {stage === 'start' ? 'The driver created this trip after leaving.' : 'The driver closed this trip.'}{' '}
+            <span style={{ color: 'var(--text-muted)' }}>{stage === 'start' ? 'Check the details, add freight and vendor, then approve.' : 'Check the details, then approve to raise the bill.'}</span>
+            {(stage === 'start' ? trip.startApproval : trip.closeApproval) === 'needs_changes' && trip.approvalNote && (
+              <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>Sent back: {trip.approvalNote}</div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost px-3 py-1.5" style={{ fontSize: 12 }} onClick={() => onSendBack(trip, stage)}>Send back</button>
+            <button className="btn-brand px-3 py-1.5" style={{ fontSize: 12 }} onClick={() => onApprove(trip, stage)}>{stage === 'start' ? 'Approve trip' : 'Approve closure'}</button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, fontSize: 12 }}>
+        {fact('Dispatch', trip.actualStartTime ? dateTime(trip.actualStartTime) : '—')}
+        {fact('Closing', trip.actualEndTime ? dateTime(trip.actualEndTime) : '—')}
+        {fact('TAT', fmtHM(trip.totalTripTimeMinutes))}
+        {fact('Halt at touching points', fmtHM(trip.haltMinutes))}
+        {fact('Delay over TAT', trip.currentStatus === 'completed' ? fmtHM(trip.delayMinutes) : '—')}
+        {fact('Penalty', trip.currentStatus !== 'completed' ? '—' : rate > 0 ? `${formatINR(trip.penaltyAmount ?? 0)} (₹${rate}/h)` : 'No rate set for this vendor')}
+        {fact('Start odometer', trip.startOdometer != null ? `${trip.startOdometer.toLocaleString('en-IN')} km` : '—')}
+        {fact('End odometer', trip.endOdometer != null ? `${trip.endOdometer.toLocaleString('en-IN')} km` : '—')}
+      </div>
+      {pts.length > 0 && (
+        <div style={{ marginTop: 12, fontSize: 12 }}>
+          <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>Touching points</div>
+          {pts.map((p) => (
+            <div key={p.id} style={{ display: 'flex', gap: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+              <span style={{ minWidth: 120 }}>{p.sequence}. {p.name || '—'}</span>
+              <span className="font-mono">in {p.inTime ? dateTime(p.inTime) : '—'}</span>
+              <span className="font-mono">out {p.outTime ? dateTime(p.outTime) : '—'}</span>
+              {p.inTime && p.outTime && <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{fmtHM(Math.round((new Date(p.outTime) - new Date(p.inTime)) / 60000))}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {links.length > 0 && (
+        <div style={{ marginTop: 12, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12 }}>
+          {links.map(([label, url]) => <a key={label} href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--teal)' }}>{label}</a>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditTripModal({ trip, onClose, onSaved, allLoadProviders = [] }) {
+  const toast = useToast();
+  const [form, setForm] = useState({ freight: '', advance: '', distance: '', tatHours: '', provider: '', dispatch: '', closing: '' });
+  const [points, setPoints] = useState([]);
   const [saving, setSaving] = useState(false);
+  const toLocal = (v) => (v ? toDatetimeLocalValue(new Date(v)) : '');
   useEffect(() => {
     if (!trip) return;
     setForm({
       freight: String(trip.freightTotalAmount ?? 0),
       advance: String(trip.advanceAmount ?? 0),
-      estEnd: trip.estimatedEndTime ? toDatetimeLocalValue(new Date(trip.estimatedEndTime)) : '',
       distance: String(trip.totalTripDistanceKm ?? 0),
+      tatHours: String(Math.round(((trip.totalTripTimeMinutes ?? 0) / 60) * 100) / 100),
+      provider: trip.loadProviderId ?? trip.loadProvider?.id ?? '',
+      dispatch: toLocal(trip.actualStartTime),
+      closing: toLocal(trip.actualEndTime),
     });
+    setPoints((trip.touchingLocations ?? []).slice().sort((x, y) => x.sequence - y.sequence).map((p) => ({ name: p.name ?? '', inTime: toLocal(p.inTime), outTime: toLocal(p.outTime) })));
   }, [trip]);
   if (!trip) return null;
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setPoint = (i, k, v) => setPoints((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const inputStyle = { background: 'var(--navy-base)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '7px 10px', borderRadius: 4, width: '100%', fontSize: 13, outline: 'none' };
   const labelStyle = { fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' };
+  const PROVIDER_OPTIONS = allLoadProviders.map((o) => ({ value: o.value, label: o.label }));
+  const started = trip.currentStatus !== 'created';
+  const iso = (v) => (v ? new Date(v).toISOString() : null);
 
   async function save() {
     const freight = Number(form.freight);
     const advance = Number(form.advance);
+    const tat = Number(form.tatHours);
     if (!Number.isFinite(freight) || freight <= 0) {
       toast({ title: 'Check the freight', description: 'The freight must be more than 0.', color: 'var(--danger)' });
       return;
@@ -238,19 +362,36 @@ function EditTripModal({ trip, onClose, onSaved }) {
       toast({ title: 'Check the advance', description: 'The advance cannot be negative.', color: 'var(--danger)' });
       return;
     }
-    const end = form.estEnd ? new Date(form.estEnd) : null;
-    const start = new Date(trip.estimatedStartTime);
-    if (end && end <= start) {
-      toast({ title: 'Check the end time', description: 'The estimated end must be after the estimated start.', color: 'var(--danger)' });
+    if (!Number.isFinite(tat) || tat <= 0) {
+      toast({ title: 'Check the TAT', description: 'The TAT must be more than 0 hours.', color: 'var(--danger)' });
       return;
     }
+    const start = new Date(form.dispatch || trip.estimatedStartTime);
+    const closing = form.closing ? new Date(form.closing) : null;
+    if (closing && closing <= start) {
+      toast({ title: 'Check the closing time', description: 'The closing time must be after the dispatch time.', color: 'var(--danger)' });
+      return;
+    }
+    for (const p of points) {
+      if (p.inTime && p.outTime && new Date(p.outTime) < new Date(p.inTime)) {
+        toast({ title: 'Check the touching times', description: `${p.name || 'A touching point'}: out is before in.`, color: 'var(--danger)' });
+        return;
+      }
+    }
+    const tatMinutes = Math.round(tat * 60);
     setSaving(true);
     try {
       await apiUpdateTrip(trip.id, {
         freightTotalAmount: Math.round(freight),
         advanceAmount: Math.round(advance),
         ...(Number(form.distance) > 0 ? { totalTripDistanceKm: Math.round(Number(form.distance)) } : {}),
-        ...(end ? { estimatedEndTime: end.toISOString(), totalTripTimeMinutes: Math.round((end - start) / 60000) } : {}),
+        totalTripTimeMinutes: tatMinutes,
+        estimatedEndTime: new Date(start.getTime() + tatMinutes * 60000).toISOString(),
+        ...(form.provider && form.provider !== (trip.loadProviderId ?? trip.loadProvider?.id) ? { loadProviderId: form.provider } : {}),
+        ...(started && form.dispatch ? { actualStartTime: iso(form.dispatch) } : {}),
+        ...(trip.currentStatus === 'completed' && form.closing ? { actualEndTime: iso(form.closing) } : {}),
+        isTouchingLocationAvailable: points.some((p) => p.name.trim()),
+        touchingLocations: points.filter((p) => p.name.trim()).map((p, i) => ({ name: p.name.trim(), sequence: i + 1, inTime: iso(p.inTime), outTime: iso(p.outTime) })),
       });
       toast({ title: 'Trip updated', description: `${trip.tripNumber} saved`, color: 'var(--teal)', icon: <CheckCircle2 size={16} style={{ color: 'var(--teal)', flexShrink: 0 }} /> });
       onSaved();
@@ -265,13 +406,18 @@ function EditTripModal({ trip, onClose, onSaved }) {
     <Modal
       open
       onOpenChange={(o) => { if (!o && !saving) onClose(); }}
-      width={480}
+      width={600}
       title={`Edit trip ${trip.tripNumber}`}
       footer={<LoadingButton className="btn-brand px-4 py-1.5" loading={saving} onClick={save}>Save</LoadingButton>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {trip.startPoint} → {trip.endPoint} · {trip.currentStatus === 'in_transit' ? 'In transit' : 'Not started'}. Route, driver, vehicle and vendor can't be changed here.
+          {trip.startPoint} → {trip.endPoint} · {trip.currentStatus === 'completed' ? 'Completed' : trip.currentStatus === 'in_transit' ? 'In transit' : 'Not started'}.
+          {' '}Driver and vehicle can't be changed here. The penalty and the bill are recalculated when you save.
+        </div>
+        <div>
+          <label style={labelStyle}>Vendor (load provider)</label>
+          <TVSelect value={form.provider} onValueChange={(v) => set('provider', v)} options={PROVIDER_OPTIONS} placeholder="Select the vendor" className="w-full" />
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -285,13 +431,51 @@ function EditTripModal({ trip, onClose, onSaved }) {
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Estimated end</label>
-            <input style={inputStyle} type="datetime-local" value={form.estEnd} onChange={(e) => set('estEnd', e.target.value)} />
+            <label style={labelStyle}>TAT (hours)</label>
+            <input style={inputStyle} className="font-mono" type="number" min="0" step="0.5" value={form.tatHours} onChange={(e) => set('tatHours', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Distance (km)</label>
             <input style={inputStyle} className="font-mono" type="number" min="0" value={form.distance} onChange={(e) => set('distance', e.target.value)} />
           </div>
+        </div>
+        {started && (
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Dispatch time</label>
+              <input style={inputStyle} type="datetime-local" value={form.dispatch} onChange={(e) => set('dispatch', e.target.value)} />
+            </div>
+            {trip.currentStatus === 'completed' && (
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Closing time</label>
+                <input style={inputStyle} type="datetime-local" value={form.closing} onChange={(e) => set('closing', e.target.value)} />
+              </div>
+            )}
+          </div>
+        )}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Touching points (the driver reports in / out times against these)</label>
+            <button type="button" className="btn-ghost px-2 py-1" style={{ fontSize: 12 }} onClick={() => setPoints((ps) => [...ps, { name: '', inTime: '', outTime: '' }])}>+ Add point</button>
+          </div>
+          {points.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No touching points.</div>}
+          {points.map((p, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'end' }}>
+              <div>
+                {i === 0 && <label style={labelStyle}>Place</label>}
+                <input style={inputStyle} value={p.name} placeholder="e.g. Jaipur" onChange={(e) => setPoint(i, 'name', e.target.value)} />
+              </div>
+              <div>
+                {i === 0 && <label style={labelStyle}>In</label>}
+                <input style={inputStyle} type="datetime-local" value={p.inTime} onChange={(e) => setPoint(i, 'inTime', e.target.value)} />
+              </div>
+              <div>
+                {i === 0 && <label style={labelStyle}>Out</label>}
+                <input style={inputStyle} type="datetime-local" value={p.outTime} onChange={(e) => setPoint(i, 'outTime', e.target.value)} />
+              </div>
+              <button type="button" className="btn-ghost px-2 py-1" style={{ fontSize: 12, color: 'var(--danger)' }} onClick={() => setPoints((ps) => ps.filter((_, j) => j !== i))}>Remove</button>
+            </div>
+          ))}
         </div>
       </div>
     </Modal>
@@ -730,7 +914,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
 }
 
 // ── TripDetailModal ──
-function TripDetailModal({ tripId, open, onOpenChange }) {
+function TripDetailModal({ tripId, open, onOpenChange, refreshKey = 0, onApprove, onSendBack }) {
   const [detail, setDetail] = useState(null);
   const [tripLoading, setTripLoading] = useState(false);
   const [tripError, setTripError] = useState(null);
@@ -743,7 +927,7 @@ function TripDetailModal({ tripId, open, onOpenChange }) {
     getTripDetailPage(tripId)
       .then((res) => { setDetail(res); setTripLoading(false); })
       .catch((e) => { setTripError(errMessage(e, 'Failed to load trip')); setTripLoading(false); });
-  }, [open, tripId]);
+  }, [open, tripId, refreshKey]);
 
   const trip = detail?.trip ?? null;
   const tripTxns = detail?.transactions ?? [];
@@ -821,6 +1005,7 @@ function TripDetailModal({ tripId, open, onOpenChange }) {
 
           {/* Overview */}
           <TabsPrimitive.Content value="overview">
+            <TripFlowCard trip={trip} onApprove={onApprove} onSendBack={onSendBack} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {/* Left column */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1077,7 +1262,8 @@ export default function Trips() {
   } = useTripsPage({
     page: 1,
     pageSize: initialPageSize,
-    status: initialTab === 'all' ? undefined : initialTab,
+    status: initialTab === 'all' || initialTab === 'approval' ? undefined : initialTab,
+    ...(initialTab === 'approval' ? { approval: 'pending' } : {}),
   });
   const [search, setSearch] = useState('');
 
@@ -1111,7 +1297,36 @@ export default function Trips() {
   function handleTabChange(tab) {
     setActiveTab(tab);
     saveTripsPrefs({ tab });
-    setFilters({ ...filters, status: tab === 'all' ? undefined : tab, page: 1 });
+    // 'approval' = trips a driver created or closed that are waiting for operations
+    setFilters({ ...filters, status: tab === 'all' || tab === 'approval' ? undefined : tab, approval: tab === 'approval' ? 'pending' : undefined, page: 1 });
+  }
+
+  const [sendBack, setSendBack] = useState(null);
+  const [detailKey, setDetailKey] = useState(0);
+  async function approveOne(trip, stage) {
+    try {
+      await decideTripApproval({ tripIds: [trip.id], stage, decision: 'approve' });
+      toast({ title: stage === 'start' ? 'Trip approved' : 'Closure approved', description: stage === 'start' ? `${trip.tripNumber} is approved.` : `${trip.tripNumber} is approved and billed.`, color: 'var(--teal)', icon: <CheckCircle2 size={16} style={{ color: 'var(--teal)', flexShrink: 0 }} /> });
+      await refetch();
+      setDetailKey((k) => k + 1);
+    } catch (e) {
+      toast({ title: 'Could not approve', description: errMessage(e), color: 'var(--danger)' });
+    }
+  }
+  async function approveAllShown() {
+    const starts = trips.filter((t) => pendingStage(t) === 'start' && t.startApproval === 'pending').map((t) => t.id);
+    const closes = trips.filter((t) => pendingStage(t) === 'close' && t.closeApproval === 'pending').map((t) => t.id);
+    const n = starts.length + closes.length;
+    if (n === 0) return;
+    if (!window.confirm(`Approve ${n} trip${n === 1 ? '' : 's'} as they are? Freight and vendor should be filled in first.`)) return;
+    try {
+      if (starts.length) await decideTripApproval({ tripIds: starts, stage: 'start', decision: 'approve' });
+      if (closes.length) await decideTripApproval({ tripIds: closes, stage: 'close', decision: 'approve' });
+      toast({ title: 'Approved', description: `${n} trip${n === 1 ? '' : 's'} approved.`, color: 'var(--teal)', icon: <CheckCircle2 size={16} style={{ color: 'var(--teal)', flexShrink: 0 }} /> });
+      await refetch();
+    } catch (e) {
+      toast({ title: 'Could not approve', description: errMessage(e), color: 'var(--danger)' });
+    }
   }
 
   const counts = {
@@ -1119,6 +1334,7 @@ export default function Trips() {
     created: statusCounts?.created ?? 0,
     in_transit: statusCounts?.inTransit ?? 0,
     completed: statusCounts?.completed ?? 0,
+    approval: statusCounts?.pendingApproval ?? 0,
   };
 
   const hasFilters = !!(filters.status || filters.dateFrom || filters.dateTo || filters.driverId || filters.vehicleId || filters.loadProviderId);
@@ -1320,6 +1536,7 @@ export default function Trips() {
                 LATE
               </span>
             )}
+            <ApprovalChip trip={row} />
           </div>
         );
       },
@@ -1369,8 +1586,13 @@ export default function Trips() {
             }
           >
             <MenuItem onSelect={() => openDetail(row)}>View Details</MenuItem>
-            {row.currentStatus !== 'completed' && (
-              <MenuItem onSelect={() => setEditTrip(row)}>Edit freight &amp; details</MenuItem>
+            <MenuItem onSelect={() => setEditTrip(row)}>Edit details</MenuItem>
+            {pendingStage(row) && (
+              <>
+                <MenuLabel>Approval</MenuLabel>
+                <MenuItem onSelect={() => approveOne(row, pendingStage(row))}>{pendingStage(row) === 'start' ? 'Approve trip' : 'Approve closure'}</MenuItem>
+                <MenuItem onSelect={() => setSendBack({ trip: row, stage: pendingStage(row) })}>Send back…</MenuItem>
+              </>
             )}
             <MenuLabel>Status</MenuLabel>
             {row.currentStatus === 'created' && (
@@ -1470,8 +1692,14 @@ export default function Trips() {
           { value: 'created', label: 'Created', count: counts.created },
           { value: 'in_transit', label: 'In Transit', count: counts.in_transit },
           { value: 'completed', label: 'Completed', count: counts.completed },
+          { value: 'approval', label: 'Needs approval', count: counts.approval },
         ]}
       />
+      {activeTab === 'approval' && trips.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn-brand px-3 py-1.5" style={{ fontSize: 12 }} onClick={approveAllShown}>Approve all on this page</button>
+        </div>
+      )}
 
       {/* Trips DataTable */}
       {loading ? (
@@ -1528,7 +1756,8 @@ export default function Trips() {
       )}
 
       {/* Edit Trip — the few details operations may change in between a trip */}
-      <EditTripModal trip={editTrip} onClose={() => setEditTrip(null)} onSaved={() => { setEditTrip(null); void refetch(); }} />
+      <EditTripModal trip={editTrip} allLoadProviders={allLoadProviders} onClose={() => setEditTrip(null)} onSaved={() => { setEditTrip(null); void refetch(); setDetailKey((k) => k + 1); }} />
+      <SendBackModal target={sendBack} onClose={() => setSendBack(null)} onDone={() => { setSendBack(null); void refetch(); setDetailKey((k) => k + 1); }} />
 
       {/* Create Trip Modal */}
       <CreateTripModal
@@ -1543,7 +1772,7 @@ export default function Trips() {
       />
 
       {/* Trip Detail Modal */}
-      <TripDetailModal tripId={selectedTripId} open={detailOpen} onOpenChange={setDetailOpen} />
+      <TripDetailModal tripId={selectedTripId} open={detailOpen} onOpenChange={setDetailOpen} refreshKey={detailKey} onApprove={approveOne} onSendBack={(trip, stage) => setSendBack({ trip, stage })} />
 
       {/* Cancel Trip — controlled AlertDialog */}
       <AlertDialog.Root open={!!cancelTrip} onOpenChange={(open) => { if (!open) setCancelTrip(null); }}>

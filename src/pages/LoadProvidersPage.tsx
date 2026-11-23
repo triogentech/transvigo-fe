@@ -25,6 +25,7 @@ interface FormState {
   gstApplicable: boolean;
   tdsApplicable: boolean;
   gstRate: string;
+  penaltyPerHour: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -36,6 +37,7 @@ const EMPTY_FORM: FormState = {
   gstApplicable: false,
   tdsApplicable: false,
   gstRate: '5',
+  penaltyPerHour: '0',
 };
 
 export default function LoadProvidersPage() {
@@ -74,6 +76,7 @@ export default function LoadProvidersPage() {
       gstApplicable: !!lp.gstApplicable,
       tdsApplicable: !!lp.tdsApplicable,
       gstRate: String(lp.gstRate ?? 5),
+      penaltyPerHour: String(Number(lp.penaltyPerHour ?? 0)),
     });
     setOpen(true);
   };
@@ -91,6 +94,7 @@ export default function LoadProvidersPage() {
         gstApplicable: form.gstApplicable,
         tdsApplicable: form.tdsApplicable,
         gstRate: Number(form.gstRate) || 0,
+        penaltyPerHour: Math.max(0, Number(form.penaltyPerHour) || 0),
       };
       if (editingId) {
         await updateLoadProvider(editingId, body);
@@ -145,6 +149,11 @@ export default function LoadProvidersPage() {
       key: 'tdsApplicable',
       header: 'TDS',
       render: (row: LoadProvider) => (row.tdsApplicable ? <Pill color="var(--accent-teal)">Yes · 1%</Pill> : <span style={{ color: 'var(--text-muted)' }}>No</span>),
+    },
+    {
+      key: 'penaltyPerHour',
+      header: 'Penalty / hr',
+      render: (row: LoadProvider) => (Number(row.penaltyPerHour) > 0 ? <span className="font-mono">₹{Number(row.penaltyPerHour).toLocaleString('en-IN')}</span> : <span style={{ color: 'var(--text-muted)' }}>None</span>),
     },
     {
       key: 'isActive',
@@ -266,6 +275,13 @@ export default function LoadProvidersPage() {
           <div className="flex items-center justify-between py-1">
             <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>TDS applies (1% of freight)</span>
             <TVSwitch checked={form.tdsApplicable} onCheckedChange={(v: boolean) => set('tdsApplicable', v)} />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Late-delivery penalty (₹ per hour)</label>
+            <input className="tv-input w-full font-mono" type="number" min="0" step="1" value={form.penaltyPerHour} onChange={(e) => set('penaltyPerHour', e.target.value)} />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+              Charged for every hour a trip runs past its TAT, after taking off the time spent at touching points. No grace period. 0 = no penalty.
+            </div>
           </div>
           <div className="flex items-center justify-between py-1">
             <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Active</span>
