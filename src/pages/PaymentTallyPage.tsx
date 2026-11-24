@@ -29,7 +29,7 @@ const STATUS_META: Record<TripBillStatus, { label: string; color: string }> = {
 
 interface EditForm {
   invoiceNumber: string; penaltyAmount: string; penaltyRemark: string; transferDate: string;
-  rentPaidAmount: string; gstTransferDate: string; tdsApplicable: boolean;
+  rentPaidAmount: string; gstTransferDate: string; tdsApplicable: boolean; gstApplicable: boolean;
 }
 
 /** Payment Tally: the bill raised to a company when each trip completes, what it owes and what it has paid. */
@@ -69,7 +69,7 @@ export default function PaymentTallyPage() {
     setForm({
       invoiceNumber: b.invoiceNumber, penaltyAmount: String(b.penaltyAmount), penaltyRemark: b.penaltyRemark ?? '',
       transferDate: isoDay(b.transferDate), rentPaidAmount: String(b.rentPaidAmount), gstTransferDate: isoDay(b.gstTransferDate),
-      tdsApplicable: b.tdsApplicable,
+      tdsApplicable: b.tdsApplicable, gstApplicable: b.gstApplicable,
     });
   };
 
@@ -86,6 +86,7 @@ export default function PaymentTallyPage() {
         rentPaidAmount: Number(form.rentPaidAmount) || 0,
         gstTransferDate: form.gstTransferDate || null,
         tdsApplicable: form.tdsApplicable,
+        gstApplicable: form.gstApplicable,
       });
       toast.success(`Bill ${form.invoiceNumber.trim()} updated`);
       setEdit(null);
@@ -112,6 +113,7 @@ export default function PaymentTallyPage() {
     { key: 'advance', header: 'Advance', render: (r: TripBill) => mono(inr(r.advance)) },
     { key: 'balance', header: 'Balance', render: (r: TripBill) => mono(inr(r.balance)) },
     { key: 'tdsAmount', header: 'TDS 1%', render: (r: TripBill) => mono(r.tdsApplicable ? `− ${inr(r.tdsAmount)}` : '—') },
+    { key: 'gstAmount', header: 'GST', render: (r: TripBill) => (r.gstApplicable ? mono(`+ ${inr(r.gstAmount)} (${r.gstRate}%)`) : '—') },
     { key: 'penalty', header: 'Penalty', render: (r: TripBill) => (r.penaltyAmount ? <span title={r.penaltyRemark ?? ''}>{mono(`− ${inr(r.penaltyAmount)}`)}{r.penaltyRemark ? <span style={{ color: 'var(--text-dim)', fontSize: 11 }}> · {r.penaltyRemark.length > 24 ? `${r.penaltyRemark.slice(0, 24)}…` : r.penaltyRemark}</span> : null}</span> : '—') },
     { key: 'totalToPay', header: 'Total to pay', render: (r: TripBill) => <span className="font-mono" style={{ fontWeight: 600 }}>{inr(r.totalToPay)}</span> },
     { key: 'transferDate', header: 'Transfer Date', render: (r: TripBill) => day(r.transferDate) },
@@ -129,8 +131,9 @@ export default function PaymentTallyPage() {
   // live preview of the tally while editing
   const preview = edit && form ? (() => {
     const tds = form.tdsApplicable ? Math.round(edit.freight * 0.01) : 0;
-    const total = Math.max(0, edit.balance - tds - (Number(form.penaltyAmount) || 0));
-    return { tds, total, remaining: Math.max(0, total - (Number(form.rentPaidAmount) || 0)) };
+    const gst = form.gstApplicable ? Math.round((edit.freight * edit.gstRate) / 100) : 0;
+    const total = Math.max(0, edit.balance - tds - (Number(form.penaltyAmount) || 0) + gst);
+    return { tds, gst, total, remaining: Math.max(0, total - (Number(form.rentPaidAmount) || 0)) };
   })() : null;
 
   return (
@@ -169,7 +172,7 @@ export default function PaymentTallyPage() {
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 2300 }}>
+        <div style={{ minWidth: 2450 }}>
         <DataTable columns={columns} data={rows} loading={loading} emptyLabel="No bills yet. A bill is raised automatically when a trip is completed." pageSize={12} />
         </div>
       </div>
@@ -191,6 +194,7 @@ export default function PaymentTallyPage() {
               <span>Balance</span><span className="font-mono">{inr(edit.balance)}</span>
               <span>TDS 1% on freight</span><span className="font-mono">− {inr(preview.tds)}</span>
               <span>Penalty</span><span className="font-mono">− {inr(Number(form.penaltyAmount) || 0)}</span>
+              <span>GST {edit.gstRate}% on freight</span><span className="font-mono">+ {inr(preview.gst)}</span>
               <span style={{ fontWeight: 600 }}>Total to pay</span><span className="font-mono" style={{ fontWeight: 600 }}>{inr(preview.total)}</span>
               <span>Received</span><span className="font-mono">− {inr(Number(form.rentPaidAmount) || 0)}</span>
               <span style={{ fontWeight: 600, color: preview.remaining ? 'var(--danger)' : 'var(--success)' }}>Remaining</span>
@@ -208,6 +212,7 @@ export default function PaymentTallyPage() {
             </div>
             <div className="flex gap-4 items-center" style={{ fontSize: 13 }}>
               <label><input type="checkbox" checked={form.tdsApplicable} onChange={(e) => set('tdsApplicable', e.target.checked)} /> TDS applies</label>
+              <label><input type="checkbox" checked={form.gstApplicable} onChange={(e) => set('gstApplicable', e.target.checked)} /> GST applies ({edit.gstRate}%)</label>
             </div>
           </div>
         )}
