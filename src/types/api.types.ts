@@ -165,7 +165,12 @@ export interface CreateLoadProviderBody {
 
 // ── Trip ──
 export type TripStatus = 'created' | 'in_transit' | 'completed';
-export interface TouchingLocation { id: string; tripId: string; name?: string; sequence: number; inTime?: string | null; outTime?: string | null }
+export interface TouchingLocation {
+  id: string; tripId: string; name?: string; sequence: number; inTime?: string | null; outTime?: string | null;
+  /** What the driver captured when reaching ('in') and leaving ('out'): GPS and the stamped trip sheet photo. */
+  inLatitude?: number | null; inLongitude?: number | null; outLatitude?: number | null; outLongitude?: number | null;
+  inSheetPhotoUrl?: string | null; outSheetPhotoUrl?: string | null;
+}
 export type ApprovalState = 'approved' | 'pending' | 'needs_changes';
 export interface Trip {
   id: string; orgId: string; tripNumber: string;

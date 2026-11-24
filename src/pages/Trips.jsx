@@ -304,11 +304,20 @@ function TripFlowCard({ trip, onApprove, onSendBack }) {
         <div style={{ marginTop: 12, fontSize: 12 }}>
           <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>Touching points</div>
           {pts.map((p) => (
-            <div key={p.id} style={{ display: 'flex', gap: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+            <div key={p.id} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', color: 'var(--text-muted)', marginBottom: 4 }}>
               <span style={{ minWidth: 120 }}>{p.sequence}. {p.name || '—'}</span>
               <span className="font-mono">in {p.inTime ? dateTime(p.inTime) : '—'}</span>
               <span className="font-mono">out {p.outTime ? dateTime(p.outTime) : '—'}</span>
               {p.inTime && p.outTime && <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{fmtHM(Math.round((new Date(p.outTime) - new Date(p.inTime)) / 60000))}</span>}
+              {/* what the driver captured at the point: where they were, and the stamped trip sheet */}
+              {[['in', p.inLatitude, p.inLongitude, p.inSheetPhotoUrl], ['out', p.outLatitude, p.outLongitude, p.outSheetPhotoUrl]].map(([stage, lat, lng, photo]) => (
+                (lat != null && lng != null) || photo ? (
+                  <span key={stage} style={{ display: 'inline-flex', gap: 8 }}>
+                    {lat != null && lng != null && <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer" style={{ color: 'var(--teal)' }}>{stage === 'in' ? 'In' : 'Out'} location</a>}
+                    {photo && <a href={photo} target="_blank" rel="noreferrer" style={{ color: 'var(--teal)' }}>{stage === 'in' ? 'In' : 'Out'} stamped sheet</a>}
+                  </span>
+                ) : null
+              ))}
             </div>
           ))}
         </div>
