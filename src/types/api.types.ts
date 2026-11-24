@@ -120,7 +120,7 @@ export interface Driver {
   accountHolderName?: string | null; accountNumber?: string | null;
   branchName?: string | null; ifscCode?: string | null; accountType?: AccountType | null;
   /** The vehicle(s) that belong to this driver. */
-  assignedVehicles?: Array<{ id: string; vehicleNumber: string }>;
+  assignedVehicles?: Array<{ id: string; vehicleNumber: string; currentStatus?: string }>;
   createdAt: string; updatedAt: string;
 }
 /** Only the name and the phone number are required; everything else can be added later. */

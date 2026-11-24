@@ -109,7 +109,7 @@ function AddDriverModal({ open, onOpenChange, onCreated }) {
       onOpenChange={onOpenChange}
       width={680}
       title="Add Driver"
-      footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit}>Save Driver</LoadingButton>}
+      footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit} disabled={!!form.vehicleInTransit}>Save Driver</LoadingButton>}
     >
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
         Only the name and the phone number are needed. You can add the other details later.
@@ -122,15 +122,20 @@ function AddDriverModal({ open, onOpenChange, onCreated }) {
             entity="vehicles"
             value={form.vehicleId}
             valueLabel={form.vehicleLabel}
-            onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleDriver: opt?.meta?.driverName ?? '' }))}
+            onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleDriver: opt?.meta?.driverName ?? '', vehicleInTransit: opt?.meta?.status === 'in_transit' && !!opt?.meta?.driverName }))}
             placeholder="Assign a vehicle to this driver"
             clearable
             clearLabel="No vehicle"
             emptyLabel="No vehicles found"
           />
-          {form.vehicleDriver && (
+          {form.vehicleDriver && !form.vehicleInTransit && (
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--warning)' }}>
               {form.vehicleLabel} is currently {form.vehicleDriver}&apos;s. It will move to this driver.
+            </div>
+          )}
+          {form.vehicleInTransit && (
+            <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>
+              {form.vehicleLabel} is in transit with {form.vehicleDriver}. Its driver can be changed once the trip is completed. Pick another vehicle or leave this empty.
             </div>
           )}
         </Field>
@@ -478,11 +483,14 @@ function DriverDetailModal({ driverId, driverName, driverStatus, open, onOpenCha
 function AssignVehicleModal({ driver, onClose, onDone }) {
   const { assignVehicle } = useDriversActions();
   const toast = useToast();
-  const [pick, setPick] = useState({ id: '', label: '', currentDriver: '' });
+  const [pick, setPick] = useState({ id: '', label: '', currentDriver: '', inTransit: false });
   const [busy, setBusy] = useState(false);
-  React.useEffect(() => { setPick({ id: '', label: '', currentDriver: '' }); }, [driver]);
+  React.useEffect(() => { setPick({ id: '', label: '', currentDriver: '', inTransit: false }); }, [driver]);
   if (!driver) return null;
   const mine = driver.assignedVehicles ?? [];
+  // A vehicle in transit keeps its driver until the trip is completed.
+  const mineInTransit = mine.filter((v) => v.currentStatus === 'in_transit');
+  const pickBlocked = pick.inTransit && pick.currentDriver && pick.currentDriver !== driver.fullName;
 
   async function save(vehicleId) {
     setBusy(true);
@@ -503,7 +511,7 @@ function AssignVehicleModal({ driver, onClose, onDone }) {
       onOpenChange={(o) => { if (!o && !busy) onClose(); }}
       width={460}
       title={`Vehicle for ${driver.fullName}`}
-      footer={<LoadingButton className="btn-brand" loading={busy} onClick={() => save(pick.id)} disabled={!pick.id}>Assign vehicle</LoadingButton>}
+      footer={<LoadingButton className="btn-brand" loading={busy} onClick={() => save(pick.id)} disabled={!pick.id || pickBlocked}>Assign vehicle</LoadingButton>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -514,15 +522,23 @@ function AssignVehicleModal({ driver, onClose, onDone }) {
           entity="vehicles"
           value={pick.id}
           valueLabel={pick.label}
-          onChange={(v, opt) => setPick({ id: v, label: opt?.label ?? '', currentDriver: opt?.meta?.driverName ?? '' })}
+          onChange={(v, opt) => setPick({ id: v, label: opt?.label ?? '', currentDriver: opt?.meta?.driverName ?? '', inTransit: opt?.meta?.status === 'in_transit' })}
           placeholder="Choose a vehicle"
           emptyLabel="No vehicles found"
         />
-        {pick.currentDriver && pick.currentDriver !== driver.fullName && (
+        {pick.currentDriver && pick.currentDriver !== driver.fullName && !pick.inTransit && (
           <div style={{ fontSize: 12, color: 'var(--warning)' }}>{pick.label} is currently {pick.currentDriver}&apos;s. It will move to {driver.fullName}.</div>
         )}
+        {pickBlocked && (
+          <div role="alert" style={{ fontSize: 12, color: 'var(--danger)' }}>{pick.label} is in transit with {pick.currentDriver}. Its driver can be changed once the trip is completed.</div>
+        )}
+        {mineInTransit.length > 0 && (
+          <div role="alert" style={{ fontSize: 12, color: 'var(--danger)' }}>
+            {mineInTransit.map((v) => v.vehicleNumber).join(', ')} {mineInTransit.length === 1 ? 'is' : 'are'} in transit, so {mineInTransit.length === 1 ? 'it stays' : 'they stay'} with {driver.fullName} until the trip is completed.
+          </div>
+        )}
         {mine.length > 0 && (
-          <button className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--danger)' }} disabled={busy} onClick={() => save(null)}>
+          <button className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--danger)' }} disabled={busy || mineInTransit.length > 0} onClick={() => save(null)}>
             Remove {mine.length === 1 ? 'this vehicle' : 'all vehicles'} from {driver.fullName}
           </button>
         )}

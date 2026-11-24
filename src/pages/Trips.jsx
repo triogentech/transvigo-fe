@@ -503,14 +503,15 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
   const pickDriver = (id) => setForm((f) => {
     const d = driverOptions(freeDrivers).find((x) => x.value === id);
     const fillVehicle = id && !f.vehicleId && d?.meta?.vehicleId;
-    return { ...f, driverId: id, driverAuto: false, ...(fillVehicle ? { vehicleId: d.meta.vehicleId, vehicleLabel: d.meta.vehicleNumber ?? '', vehicleAuto: true } : {}) };
+    return { ...f, driverId: id, driverAuto: false, ...(fillVehicle ? { vehicleId: d.meta.vehicleId, vehicleLabel: d.meta.vehicleNumber ?? '', vehicleAuto: true, vehicleNoDriver: false } : {}) };
   });
   const pickVehicle = (v, opt) => setForm((f) => {
     const did = opt?.meta?.driverId;
     // only a driver who is free to take a trip can be filled in (the driver list hides drivers who are away in transit)
     const free = did && driverOptions(freeDrivers).some((x) => x.value === did);
     const fillDriver = v && free && (!f.driverId || f.driverAuto);
-    return { ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleAuto: false, ...(fillDriver ? { driverId: did, driverAuto: true } : {}) };
+    // a trip needs a vehicle that has a driver assigned: say so as soon as one without is picked
+    return { ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleAuto: false, vehicleNoDriver: !!v && !did, ...(fillDriver ? { driverId: did, driverAuto: true } : {}) };
   });
 
   // Format a Date into the local "YYYY-MM-DDTHH:mm" string a datetime-local input expects.
@@ -564,6 +565,7 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
       if (touchingLocations && !locations.some((l) => l.trim())) e.locations = 'Enter at least one stop, or turn Touching Locations off';
     } else {
       if (!form.vehicleId) e.vehicleId = 'Select the vehicle for this trip';
+      else if (form.vehicleNoDriver) e.vehicleId = `${form.vehicleLabel || 'This vehicle'} has no driver assigned. Assign a driver to it first.`;
       if (!form.loadProviderId) e.loadProviderId = 'Select the vendor this trip is for';
       if (!(Number(form.freight) > 0)) e.freight = 'Enter the freight (more than 0)';
       if (form.advance !== '' && !(Number(form.advance) >= 0)) e.advance = 'The advance cannot be negative';
@@ -826,6 +828,11 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             />
             {form.vehicleAuto && form.vehicleId && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>Filled in from the driver. Change it if another vehicle is used.</div>
+            )}
+            {form.vehicleNoDriver && form.vehicleId && (
+              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>
+                {form.vehicleLabel} has no driver assigned, so a trip can&apos;t be created for it. Assign a driver first (Drivers → Assign vehicle, or Vehicles → Assign).
+              </div>
             )}
             <Err k="vehicleId" />
           </div>
