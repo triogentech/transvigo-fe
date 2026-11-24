@@ -653,6 +653,8 @@ export interface TripBill {
   tripStartDate: string | null; route: string; tripNumber: string; tripCloseDate: string | null;
   freight: number; advance: number; balance: number;
   tdsApplicable: boolean; tdsAmount: number;
+  /** GST on the freight, added to the bill when it applies to the company. */
+  gstApplicable: boolean; gstRate: number; gstAmount: number;
   penaltyAmount: number; penaltyRemark: string | null;
   transferDate: string | null; rentPaidAmount: number; gstTransferDate: string | null;
   vehicleNumber: string | null; vendorId: string | null; vendorName: string | null; vendorCode: string | null;
@@ -665,5 +667,5 @@ export interface TripBillSummary {
 export interface UpdateTripBillBody {
   invoiceNumber?: string; penaltyAmount?: number; penaltyRemark?: string | null;
   transferDate?: string | null; rentPaidAmount?: number; gstTransferDate?: string | null;
-  tdsApplicable?: boolean;
+  tdsApplicable?: boolean; gstApplicable?: boolean;
 }
