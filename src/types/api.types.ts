@@ -314,6 +314,9 @@ export interface TicketHistoryEntry {
   createdAt: string;
   performedByUser?: { id: string; username: string } | null;
 }
+/** One message in the conversation between the driver and the office on a ticket. */
+export interface TicketMessage { id: string; body: string; createdAt: string; fromDriver: boolean; senderName: string }
+
 export interface Ticket {
   id: string;
   ticketNumber: string;

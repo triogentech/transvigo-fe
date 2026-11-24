@@ -8,7 +8,7 @@ import { errMessage } from '../api/client';
 import { shortDate } from '../lib/utils.js';
 import { ackSlaLabel, formatSla, slaColor, slaStatus } from '../lib/sla';
 import type {
-  CreateTicketBody, Ticket, TicketHistoryEntry, TicketIssueType, TicketPriority, TicketStatus,
+  CreateTicketBody, Ticket, TicketHistoryEntry, TicketIssueType, TicketMessage, TicketPriority, TicketStatus,
 } from '../types/api.types';
 import { ErrorBanner, LoadingButton, SkeletonTable } from '../components/states';
 import { AsyncSelect } from '../components/AsyncSelect';
@@ -86,17 +86,25 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [assignees, setAssignees] = useState<SelectOption[]>([]);
+  const [messages, setMessages] = useState<TicketMessage[]>([]);
+  const [reply, setReply] = useState('');
+  const [resolveNote, setResolveNote] = useState('');
 
+  const loadMessages = async () => {
+    try { setMessages(await ticketsApi.getTicketMessages(ticketId)); } catch { /* the conversation is optional */ }
+  };
   const load = async () => {
     setLoading(true);
     try { setTicket(await ticketsApi.getTicket(ticketId)); }
     catch (e) { toast.error(errMessage(e)); }
     finally { setLoading(false); }
+    void loadMessages();
   };
   useEffect(() => {
     if (open) {
       void load();
       getSelect('assignees').then(setAssignees).catch(() => undefined);
+      setReply(''); setResolveNote('');
     }
     /* eslint-disable-next-line */
   }, [open, ticketId]);
@@ -106,6 +114,33 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
     try {
       await ticketsApi.changeTicketStatus(ticketId, status);
       toast.success(`Ticket ${titleCase(status)}`);
+      await load();
+      onChanged();
+    } catch (e) { toast.error(errMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  // The same process as a maintenance report: the first message acknowledges the ticket; resolving closes the conversation.
+  const sendReply = async () => {
+    const body = reply.trim();
+    if (!body) return;
+    setBusy(true);
+    try {
+      const r = await ticketsApi.postTicketMessage(ticketId, body);
+      setReply('');
+      if (r.acknowledgedNow) toast.success('Sent. The ticket is now acknowledged.');
+      await load();
+      onChanged();
+    } catch (e) { toast.error(errMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  const resolve = async () => {
+    setBusy(true);
+    try {
+      await ticketsApi.resolveTicket(ticketId, resolveNote.trim());
+      toast.success('Ticket resolved. The driver has been told.');
+      setResolveNote('');
       await load();
       onChanged();
     } catch (e) { toast.error(errMessage(e)); }
@@ -206,10 +241,55 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
             />
           </div>
 
+          {/* Conversation with the driver */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Conversation</div>
+            <div className="tv-card-flat" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {messages.length === 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                  No messages yet.{ticket.status === 'open' ? ' Your first message acknowledges the ticket.' : ''}
+                </div>
+              )}
+              {messages.map((m) => (
+                <div key={m.id} style={{ alignSelf: m.fromDriver ? 'flex-start' : 'flex-end', maxWidth: '85%' }}>
+                  <div style={{ background: m.fromDriver ? 'var(--navy-light)' : 'var(--teal)', color: m.fromDriver ? 'var(--text-primary)' : '#fff', borderRadius: 10, padding: '7px 11px', fontSize: 13, whiteSpace: 'pre-wrap' }}>{m.body}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2, textAlign: m.fromDriver ? 'left' : 'right' }}>
+                    {m.fromDriver ? 'Driver' : m.senderName} · {shortDate(m.createdAt)}
+                  </div>
+                </div>
+              ))}
+              {ticket.status === 'resolved' || ticket.status === 'closed' ? (
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>This ticket is resolved.</div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <textarea
+                    value={reply} onChange={(e) => setReply(e.target.value)} rows={2} maxLength={2000} placeholder="Write a message to the driver"
+                    style={{ flex: 1, background: 'var(--navy-base)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '7px 10px', borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical' }}
+                  />
+                  <LoadingButton className="btn-brand" loading={busy} onClick={sendReply} disabled={!reply.trim()}>Send</LoadingButton>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resolve: from wherever the ticket is, like resolving a maintenance report */}
+          {(ticket.status === 'open' || ticket.status === 'acknowledged' || ticket.status === 'in_progress') && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>Resolve</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} rows={2} maxLength={2000} placeholder="What was done? (optional, the driver sees it)"
+                  style={{ flex: 1, background: 'var(--navy-base)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '7px 10px', borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical' }}
+                />
+                <LoadingButton className="btn-brand" loading={busy} onClick={resolve}>Resolve ticket</LoadingButton>
+              </div>
+            </div>
+          )}
+
           {/* Status actions */}
-          {NEXT[ticket.status].length > 0 && (
+          {NEXT[ticket.status].filter((n) => n.status !== 'resolved').length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {NEXT[ticket.status].map((n) => (
+              {NEXT[ticket.status].filter((n) => n.status !== 'resolved').map((n) => (
                 <LoadingButton key={n.status} className="btn-brand" loading={busy} onClick={() => changeStatus(n.status)}>
                   {n.label}
                 </LoadingButton>
