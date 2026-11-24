@@ -189,6 +189,37 @@ html.dark {
   }
   .btn-ghost:hover:not(:disabled) { background: var(--btn-secondary-hover); border-color: var(--border-strong); }
 
+  /* Column header filters (components/ColumnFilter.jsx) */
+  .tv-colfilter {
+    display: inline-flex; align-items: center; justify-content: center; position: relative;
+    width: 22px; height: 22px; margin-left: 4px; border-radius: 6px; vertical-align: middle;
+    color: var(--text-dim); opacity: 0.7; background: transparent; border: 0; cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
+  }
+  .tv-colfilter:hover { background: var(--bg-hover); color: var(--text-primary); opacity: 1; }
+  .tv-colfilter:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 1px; opacity: 1; }
+  .tv-colfilter[data-active="true"] { color: var(--accent-teal); background: var(--teal-glow); opacity: 1; }
+  .tv-colfilter[data-active="true"]::after {
+    content: ''; position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 99px;
+    background: var(--accent-teal); box-shadow: 0 0 0 2px var(--bg-surface);
+  }
+  .tv-colfilter-opt {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 6px;
+    font-size: 13px; color: var(--text-primary); background: transparent; border: 0; cursor: pointer;
+  }
+  .tv-colfilter-opt:hover { background: var(--bg-hover); }
+  .tv-colfilter-opt[data-on="true"] { color: var(--accent-teal); font-weight: 600; }
+  .tv-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; font-size: 12px;
+    border: 1px solid var(--border); border-radius: 99px; background: var(--bg-surface);
+  }
+  .tv-chip-x {
+    display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+    border-radius: 99px; color: var(--text-dim); background: transparent; border: 0; cursor: pointer;
+  }
+  .tv-chip-x:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .tv-chip-x:focus-visible { outline: 2px solid var(--accent-teal); }
+
   .radix-overlay {
     position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
     animation: overlayShow 150ms ease; z-index: 50;

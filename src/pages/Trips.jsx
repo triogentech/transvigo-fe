@@ -3,17 +3,18 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import {
-  Plus, Filter, ArrowRight, MoreHorizontal, CheckCircle2,
+  Plus, ArrowRight, MoreHorizontal, CheckCircle2,
   FileText, MapPin, Truck, User,
 } from 'lucide-react';
 
 import {
   PageHeader, SegmentTabs, DataTable, Modal, TVSelect, TVSwitch,
   TVAvatar, StatusBadge, Pill, Menu, MenuItem, MenuLabel, MenuSeparator,
-  Popover, useToast,
+  useToast,
 } from '../components/ui.jsx';
 import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../components/states.tsx';
 import { SearchInput } from '../components/SearchInput';
+import { ColumnFilter, ActiveFilters, rangeLabel } from '../components/ColumnFilter';
 import { AsyncSelect } from '../components/AsyncSelect.tsx';
 import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
@@ -65,178 +66,6 @@ function runningTATMinutes(row) {
     ? new Date(row.actualEndTime).getTime()
     : Date.now();
   return Math.max(0, Math.round((end - start) / 60000));
-}
-
-// ── FilterPopover ──
-function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, allLoadProviders }) {
-  const [local, setLocal] = useState({
-    status: filters.status || '',
-    dateFrom: filters.dateFrom || '',
-    dateTo: filters.dateTo || '',
-    driverId: filters.driverId || '',
-    vehicleId: filters.vehicleId || '',
-    loadProviderId: filters.loadProviderId || '',
-    tripNumber: filters.tripNumber || '',
-    vehicleNumber: filters.vehicleNumber || '',
-    startFrom: filters.startFrom || '',
-    startTo: filters.startTo || '',
-    endFrom: filters.endFrom || '',
-    endTo: filters.endTo || '',
-  });
-  const set = (k, v) => setLocal((f) => ({ ...f, [k]: v }));
-
-  const inputStyle = {
-    background: 'var(--navy-base)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-primary)',
-    padding: '4px 8px',
-    borderRadius: 4,
-    width: '100%',
-    fontSize: 13,
-    fontFamily: 'var(--font-body)',
-    outline: 'none',
-  };
-
-  const STATUS_OPTIONS = [
-    { value: '', label: 'All Statuses' },
-    { value: 'created', label: 'Created' },
-    { value: 'in_transit', label: 'In Transit' },
-    { value: 'completed', label: 'Completed' },
-  ];
-
-  const DRIVER_OPTIONS = [
-    { value: '', label: 'All Drivers' },
-    ...(allDrivers ?? []),
-  ];
-  const PROVIDER_OPTIONS = [
-    { value: '', label: 'All Providers' },
-    ...(allLoadProviders ?? []),
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Filters</div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Trip number</div>
-          <input value={local.tripNumber} onChange={(e) => set('tripNumber', e.target.value)} placeholder="e.g. 8443" style={inputStyle} />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vehicle number</div>
-          <input value={local.vehicleNumber} onChange={(e) => set('vehicleNumber', e.target.value)} placeholder="e.g. HR55" style={inputStyle} />
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Start time from</div>
-          <input type="date" value={local.startFrom} onChange={(e) => set('startFrom', e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Start time to</div>
-          <input type="date" value={local.startTo} onChange={(e) => set('startTo', e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>End time from</div>
-          <input type="date" value={local.endFrom} onChange={(e) => set('endFrom', e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>End time to</div>
-          <input type="date" value={local.endTo} onChange={(e) => set('endTo', e.target.value)} style={inputStyle} />
-        </div>
-      </div>
-
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Status</div>
-        <TVSelect
-          value={local.status}
-          onValueChange={(v) => set('status', v)}
-          options={STATUS_OPTIONS}
-          placeholder="All Statuses"
-          className="w-full"
-        />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>From Date</div>
-          <input
-            type="date"
-            value={local.dateFrom}
-            onChange={(e) => set('dateFrom', e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>To Date</div>
-          <input
-            type="date"
-            value={local.dateTo}
-            onChange={(e) => set('dateTo', e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-      </div>
-
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Driver</div>
-        <TVSelect
-          value={local.driverId}
-          onValueChange={(v) => set('driverId', v)}
-          options={DRIVER_OPTIONS}
-          placeholder="All Drivers"
-          className="w-full"
-        />
-      </div>
-
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vehicle</div>
-        <AsyncSelect
-          entity="vehicles"
-          value={local.vehicleId}
-          valueLabel={(allVehicles ?? []).find((v) => v.value === local.vehicleId)?.label ?? ''}
-          onChange={(v) => set('vehicleId', v)}
-          placeholder="All Vehicles"
-          clearable
-          clearLabel="All Vehicles"
-          emptyLabel="No vehicles found"
-        />
-      </div>
-
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vendor</div>
-        <TVSelect
-          value={local.loadProviderId}
-          onValueChange={(v) => set('loadProviderId', v)}
-          options={PROVIDER_OPTIONS}
-          placeholder="All Providers"
-          className="w-full"
-        />
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-        <button
-          className="btn-teal px-3 py-1.5"
-          style={{ fontSize: 13, flex: 1 }}
-          onClick={() => onApply(local)}
-        >
-          Apply Filters
-        </button>
-        <button
-          className="btn-ghost px-3 py-1.5"
-          style={{ fontSize: 13 }}
-          onClick={() => {
-            const reset = { status: '', dateFrom: '', dateTo: '', driverId: '', vehicleId: '', loadProviderId: '', tripNumber: '', vehicleNumber: '', startFrom: '', startTo: '', endFrom: '', endTo: '' };
-            setLocal(reset);
-            onReset();
-          }}
-        >
-          Reset
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ── CreateTripModal ──
@@ -1371,7 +1200,6 @@ export default function Trips() {
   const [search, setSearch] = useState('');
 
   const allDrivers = filterOptions?.drivers ?? [];
-  const allVehicles = filterOptions?.vehicles ?? [];
   const allLoadProviders = filterOptions?.loadProviders ?? [];
 
   // Tab state (mirrors filters.status) — restored from saved preferences.
@@ -1440,7 +1268,23 @@ export default function Trips() {
     approval: statusCounts?.pendingApproval ?? 0,
   };
 
-  const hasFilters = !!(filters.status || filters.dateFrom || filters.dateTo || filters.driverId || filters.vehicleId || filters.loadProviderId || filters.tripNumber || filters.vehicleNumber || filters.startFrom || filters.startTo || filters.endFrom || filters.endTo);
+  // column filters (the status tabs and the search are separate); an empty value removes the filter
+  const COLUMN_KEYS = ['tripNumber', 'vehicleNumber', 'startFrom', 'startTo', 'endFrom', 'endTo', 'driverId', 'loadProviderId'];
+  const setCol = (patch) => {
+    const next = { ...filters, page: 1 };
+    for (const [k, v] of Object.entries(patch)) { if (v) next[k] = v; else delete next[k]; }
+    setFilters(next);
+  };
+  const hasFilters = COLUMN_KEYS.some((k) => filters[k]);
+  const optLabel = (opts, v) => opts.find((o) => o.value === v)?.label ?? 'selected';
+  const chips = [
+    ...(filters.tripNumber ? [{ key: 'tn', label: 'Trip', value: filters.tripNumber, onRemove: () => setCol({ tripNumber: '' }) }] : []),
+    ...(filters.vehicleNumber ? [{ key: 'vn', label: 'Vehicle', value: filters.vehicleNumber, onRemove: () => setCol({ vehicleNumber: '' }) }] : []),
+    ...(filters.startFrom || filters.startTo ? [{ key: 'st', label: 'Start', value: rangeLabel({ from: filters.startFrom, to: filters.startTo }), onRemove: () => setCol({ startFrom: '', startTo: '' }) }] : []),
+    ...(filters.endFrom || filters.endTo ? [{ key: 'en', label: 'End', value: rangeLabel({ from: filters.endFrom, to: filters.endTo }), onRemove: () => setCol({ endFrom: '', endTo: '' }) }] : []),
+    ...(filters.driverId ? [{ key: 'dr', label: 'Driver', value: optLabel(allDrivers, filters.driverId), onRemove: () => setCol({ driverId: '' }) }] : []),
+    ...(filters.loadProviderId ? [{ key: 'lp', label: 'Vendor', value: optLabel(allLoadProviders, filters.loadProviderId), onRemove: () => setCol({ loadProviderId: '' }) }] : []),
+  ];
 
   async function handleMarkInTransit(trip) {
     try {
@@ -1499,6 +1343,7 @@ export default function Trips() {
     {
       key: 'vehicle',
       header: 'Vehicle',
+      filter: <ColumnFilter label="Vehicle" type="text" placeholder="Vehicle number contains…" value={filters.vehicleNumber ?? ''} onChange={(v) => setCol({ vehicleNumber: v })} />,
       className: 'whitespace-nowrap',
       render: (row) => row.vehicle
         ? <Pill color="var(--teal)"><span className="font-mono">{row.vehicle.vehicleNumber}</span></Pill>
@@ -1507,6 +1352,7 @@ export default function Trips() {
     {
       key: 'tripNumber',
       header: 'Trip #',
+      filter: <ColumnFilter label="Trip number" type="text" placeholder="Trip number contains…" value={filters.tripNumber ?? ''} onChange={(v) => setCol({ tripNumber: v })} />,
       className: 'whitespace-nowrap',
       render: (row) => (
         <button
@@ -1560,12 +1406,14 @@ export default function Trips() {
     {
       key: 'startTime',
       header: 'Start Time',
+      filter: <ColumnFilter label="Start time" type="date" value={{ from: filters.startFrom ?? '', to: filters.startTo ?? '' }} onChange={(r) => setCol({ startFrom: r.from, startTo: r.to })} />,
       className: 'whitespace-nowrap',
       render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedStartTime)}</span>,
     },
     {
       key: 'endTime',
       header: 'End Time',
+      filter: <ColumnFilter label="End time" type="date" value={{ from: filters.endFrom ?? '', to: filters.endTo ?? '' }} onChange={(r) => setCol({ endFrom: r.from, endTo: r.to })} />,
       className: 'whitespace-nowrap',
       render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedEndTime)}</span>,
     },
@@ -1647,6 +1495,7 @@ export default function Trips() {
     {
       key: 'driver',
       header: 'Driver',
+      filter: <ColumnFilter label="Driver" type="select" options={allDrivers} value={filters.driverId ?? ''} onChange={(v) => setCol({ driverId: v })} />,
       className: 'whitespace-nowrap',
       render: (row) => row.driver ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
@@ -1658,6 +1507,7 @@ export default function Trips() {
     {
       key: 'loadProvider',
       header: 'Logistic Provider',
+      filter: <ColumnFilter label="Vendor" type="select" options={allLoadProviders} value={filters.loadProviderId ?? ''} onChange={(v) => setCol({ loadProviderId: v })} />,
       className: 'whitespace-nowrap',
       render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{row.loadProvider?.name || '—'}</span>,
     },
@@ -1736,47 +1586,6 @@ export default function Trips() {
               placeholder="Search trips…"
               width={220}
             />
-            <Popover
-              width={300}
-              trigger={
-                <button className="btn-ghost px-3 py-1.5 flex items-center gap-2" style={{ fontSize: 13 }}>
-                  <Filter size={14} />
-                  Filters
-                  {hasFilters && (
-                    <span style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--teal)', display: 'inline-block' }} />
-                  )}
-                </button>
-              }
-            >
-              <FilterPopover
-                filters={filters}
-                allDrivers={allDrivers}
-                allVehicles={allVehicles}
-                allLoadProviders={allLoadProviders}
-                onApply={(f) => setFilters({
-                  ...filters,
-                  status: f.status || undefined,
-                  dateFrom: f.dateFrom || undefined,
-                  dateTo: f.dateTo || undefined,
-                  driverId: f.driverId || undefined,
-                  vehicleId: f.vehicleId || undefined,
-                  loadProviderId: f.loadProviderId || undefined,
-                  tripNumber: f.tripNumber.trim() || undefined,
-                  vehicleNumber: f.vehicleNumber.trim() || undefined,
-                  startFrom: f.startFrom || undefined,
-                  startTo: f.startTo || undefined,
-                  endFrom: f.endFrom || undefined,
-                  endTo: f.endTo || undefined,
-                  page: 1,
-                })}
-                onReset={() => {
-                  setActiveTab('all');
-                  saveTripsPrefs({ tab: 'all' });
-                  setFilters({ page: 1, pageSize: filters.pageSize ?? 10 });
-                }}
-              />
-            </Popover>
-
             <button
               className="btn-brand px-3 py-1.5 flex items-center gap-2"
               style={{ fontSize: 13 }}
@@ -1804,6 +1613,7 @@ export default function Trips() {
           { value: 'approval', label: 'Needs approval', count: counts.approval },
         ]}
       />
+      <ActiveFilters chips={chips} onClearAll={() => setCol(Object.fromEntries(COLUMN_KEYS.map((k) => [k, ''])))} />
       {activeTab === 'approval' && trips.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button className="btn-brand px-3 py-1.5" style={{ fontSize: 12 }} onClick={approveAllShown}>Approve all on this page</button>
@@ -1811,14 +1621,13 @@ export default function Trips() {
       )}
 
       {/* Trips DataTable */}
-      {loading ? (
-        <SkeletonTable rows={8} cols={columns.length} />
-      ) : trips.length === 0 && !error ? (
+      {!loading && trips.length === 0 && !error && !hasFilters && !filters.search ? (
         <EmptyState title="No trips found" description="Create a new trip or adjust your filters." />
       ) : (
         <DataTable
           columns={columns}
           data={trips}
+          loading={loading}
           onRowClick={openDetail}
           rowClassName={(row) =>
             cx(
@@ -1826,7 +1635,7 @@ export default function Trips() {
               row.currentStatus === 'completed' && 'opacity-60',
             )
           }
-          emptyLabel="No trips found"
+          emptyLabel={hasFilters || filters.search ? 'No trips match these filters' : 'No trips found'}
           pageSize={filters.pageSize ?? 10}
           paginate={false}
         />

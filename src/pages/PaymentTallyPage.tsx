@@ -5,6 +5,7 @@ import { getSelect, type SelectOption } from '../api/select.api';
 import { getTripBills, updateTripBill, type TripBillFilters } from '../api/trip-bills.api';
 import type { TripBill, TripBillStatus, TripBillSummary } from '../types/api.types';
 import { ErrorBanner, LoadingButton } from '../components/states';
+import { ColumnFilter, ActiveFilters, rangeLabel } from '../components/ColumnFilter';
 import { SearchInput } from '../components/SearchInput';
 import { usePermissions } from '../context/PermissionsContext';
 
@@ -101,15 +102,35 @@ export default function PaymentTallyPage() {
     }
   };
 
+  // one place to set / clear a filter (an empty value removes it)
+  const patch = (o: Partial<Record<keyof TripBillFilters, string | undefined>>) =>
+    setFilters((f) => { const n: Record<string, unknown> = { ...f }; for (const [k, v] of Object.entries(o)) { if (v) n[k] = v; else delete n[k]; } return n as TripBillFilters; });
+  const STATUS_OPTS = [{ value: 'pending', label: 'Pending' }, { value: 'partial', label: 'Part paid' }, { value: 'paid', label: 'Paid' }];
+  const text = (key: 'invoiceNumber' | 'tripNumber' | 'vehicleNumber', label: string) => (
+    <ColumnFilter label={label} type="text" value={filters[key] ?? ''} onChange={(v: string) => patch({ [key]: v })} />
+  );
+  const days = (from: 'tripStartFrom' | 'tripCloseFrom', to: 'tripStartTo' | 'tripCloseTo', label: string) => (
+    <ColumnFilter label={label} type="date" value={{ from: filters[from] ?? '', to: filters[to] ?? '' }} onChange={(r: { from: string; to: string }) => patch({ [from]: r.from, [to]: r.to })} />
+  );
+  const chips = [
+    ...(filters.invoiceNumber ? [{ key: 'inv', label: 'Invoice', value: filters.invoiceNumber, onRemove: () => patch({ invoiceNumber: '' }) }] : []),
+    ...(filters.tripNumber ? [{ key: 'trip', label: 'Trip', value: filters.tripNumber, onRemove: () => patch({ tripNumber: '' }) }] : []),
+    ...(filters.vehicleNumber ? [{ key: 'veh', label: 'Vehicle', value: filters.vehicleNumber, onRemove: () => patch({ vehicleNumber: '' }) }] : []),
+    ...(filters.tripStartFrom || filters.tripStartTo ? [{ key: 'ts', label: 'Trip start', value: rangeLabel({ from: filters.tripStartFrom, to: filters.tripStartTo }), onRemove: () => patch({ tripStartFrom: '', tripStartTo: '' }) }] : []),
+    ...(filters.tripCloseFrom || filters.tripCloseTo ? [{ key: 'tc', label: 'Trip close', value: rangeLabel({ from: filters.tripCloseFrom, to: filters.tripCloseTo }), onRemove: () => patch({ tripCloseFrom: '', tripCloseTo: '' }) }] : []),
+    ...(filters.loadProviderId ? [{ key: 'ven', label: 'Vendor', value: companies.find((c) => c.value === filters.loadProviderId)?.label ?? 'selected', onRemove: () => patch({ loadProviderId: '' }) }] : []),
+    ...(filters.status ? [{ key: 'st', label: 'Payment', value: STATUS_OPTS.find((o) => o.value === filters.status)?.label ?? filters.status, onRemove: () => patch({ status: '' }) }] : []),
+  ];
+
   const mono = (v: React.ReactNode) => <span className="font-mono">{v}</span>;
   const columns = [
-    { key: 'invoiceNumber', header: 'Invoice No', render: (r: TripBill) => <span className="font-mono" style={{ color: 'var(--teal)' }}>{r.invoiceNumber}</span> },
-    { key: 'tripNumber', header: 'Trip No', render: (r: TripBill) => mono(r.tripNumber) },
-    { key: 'tripStartDate', header: 'Trip Start', render: (r: TripBill) => day(r.tripStartDate) },
-    { key: 'tripCloseDate', header: 'Trip Close', render: (r: TripBill) => day(r.tripCloseDate) },
+    { key: 'invoiceNumber', header: 'Invoice No', filter: text('invoiceNumber', 'Invoice No'), render: (r: TripBill) => <span className="font-mono" style={{ color: 'var(--teal)' }}>{r.invoiceNumber}</span> },
+    { key: 'tripNumber', header: 'Trip No', filter: text('tripNumber', 'Trip No'), render: (r: TripBill) => mono(r.tripNumber) },
+    { key: 'tripStartDate', header: 'Trip Start', filter: days('tripStartFrom', 'tripStartTo', 'Trip Start'), render: (r: TripBill) => day(r.tripStartDate) },
+    { key: 'tripCloseDate', header: 'Trip Close', filter: days('tripCloseFrom', 'tripCloseTo', 'Trip Close'), render: (r: TripBill) => day(r.tripCloseDate) },
     { key: 'route', header: 'Route' },
-    { key: 'vehicleNumber', header: 'Vehicle', render: (r: TripBill) => r.vehicleNumber ?? '—' },
-    { key: 'vendorName', header: 'Vendor', render: (r: TripBill) => r.vendorName ?? '—' },
+    { key: 'vehicleNumber', header: 'Vehicle', filter: text('vehicleNumber', 'Vehicle'), render: (r: TripBill) => r.vehicleNumber ?? '—' },
+    { key: 'vendorName', header: 'Vendor', filter: <ColumnFilter label="Vendor" type="select" options={companies} value={filters.loadProviderId ?? ''} onChange={(v: string) => patch({ loadProviderId: v })} />, render: (r: TripBill) => r.vendorName ?? '—' },
     { key: 'vendorCode', header: 'Vendor Code', render: (r: TripBill) => mono(r.vendorCode ?? '—') },
     { key: 'tds', header: 'TDS', render: (r: TripBill) => (r.tdsApplicable ? <Pill color="var(--accent-teal)">Yes</Pill> : <span style={{ color: 'var(--text-muted)' }}>No</span>) },
     { key: 'freight', header: 'Freight', render: (r: TripBill) => mono(inr(r.freight)) },
@@ -123,7 +144,7 @@ export default function PaymentTallyPage() {
     { key: 'rentPaidAmount', header: 'Rent Payment', render: (r: TripBill) => mono(inr(r.rentPaidAmount)) },
     { key: 'gstTransferDate', header: 'GST Transfer Date', render: (r: TripBill) => day(r.gstTransferDate) },
     { key: 'amountRemaining', header: 'Remaining', render: (r: TripBill) => <span className="font-mono" style={{ color: r.amountRemaining ? 'var(--danger)' : 'var(--success)' }}>{inr(r.amountRemaining)}</span> },
-    { key: 'status', header: 'Status', render: (r: TripBill) => <Pill color={STATUS_META[r.status].color}>{STATUS_META[r.status].label}</Pill> },
+    { key: 'status', header: 'Status', filter: <ColumnFilter label="Payment" type="select" options={STATUS_OPTS} value={filters.status ?? ''} onChange={(v: string) => patch({ status: v })} />, render: (r: TripBill) => <Pill color={STATUS_META[r.status].color}>{STATUS_META[r.status].label}</Pill> },
     {
       key: 'actions', header: '',
       render: (r: TripBill) => (canEdit ? <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); openEdit(r); }}>Update</button> : null),
@@ -156,33 +177,8 @@ export default function PaymentTallyPage() {
       </div>
 
       <div className="flex gap-3 flex-wrap items-center">
-        <SearchInput value={filters.search ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, search: v || undefined }))} placeholder="Search invoice, trip, vehicle or vendor…" />
-        <select className="tv-input" style={{ width: 220 }} value={filters.loadProviderId ?? ''} onChange={(e) => setFilters((f) => ({ ...f, loadProviderId: e.target.value || undefined }))}>
-          <option value="">All vendors</option>
-          {companies.map((c) => (<option key={c.value} value={c.value}>{c.label}</option>))}
-        </select>
-        <select className="tv-input" style={{ width: 160 }} value={filters.status ?? ''} onChange={(e) => setFilters((f) => ({ ...f, status: (e.target.value || undefined) as TripBillStatus | undefined }))}>
-          <option value="">All payments</option>
-          <option value="pending">Pending</option>
-          <option value="partial">Part paid</option>
-          <option value="paid">Paid</option>
-        </select>
-      </div>
-      <div className="flex gap-3 flex-wrap items-center">
-        <SearchInput width={190} value={filters.invoiceNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, invoiceNumber: v || undefined }))} placeholder="Invoice number" />
-        <SearchInput width={170} value={filters.tripNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, tripNumber: v || undefined }))} placeholder="Trip number" />
-        <SearchInput width={170} value={filters.vehicleNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, vehicleNumber: v || undefined }))} placeholder="Vehicle number" />
-        <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip start
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripStartFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripStartFrom: e.target.value || undefined }))} />
-          <span>to</span>
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripStartTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripStartTo: e.target.value || undefined }))} />
-        </label>
-        <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip close
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripCloseFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripCloseFrom: e.target.value || undefined }))} />
-          <span>to</span>
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripCloseTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripCloseTo: e.target.value || undefined }))} />
-        </label>
-        {Object.values(filters).some(Boolean) && <button className="btn-ghost px-3 py-1.5" style={{ fontSize: 13 }} onClick={() => setFilters({})}>Clear filters</button>}
+        <SearchInput width={320} value={filters.search ?? ''} onChange={(v: string) => patch({ search: v })} placeholder="Search invoice, trip, vehicle or vendor…" />
+        <ActiveFilters chips={chips} onClearAll={() => setFilters((f) => (f.search ? { search: f.search } : {}))} />
       </div>
 
       <div style={{ overflowX: 'auto' }}>

@@ -177,7 +177,7 @@ export function DataTable({ columns, data, onRowClick, rowClassName, emptyLabel 
                         : {}),
                     }}
                   >
-                    {c.header}
+                    {c.filter ? <span className="inline-flex items-center">{c.header}{c.filter}</span> : c.header}
                   </th>
                 ))}
               </tr>
