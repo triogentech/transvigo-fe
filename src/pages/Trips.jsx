@@ -1406,14 +1406,14 @@ export default function Trips() {
     {
       key: 'startTime',
       header: 'Start Time',
-      filter: <ColumnFilter label="Start time" type="date" value={{ from: filters.startFrom ?? '', to: filters.startTo ?? '' }} onChange={(r) => setCol({ startFrom: r.from, startTo: r.to })} />,
+      filter: <ColumnFilter label="Start time" type="date" value={filters.startFrom ?? ''} onChange={(d) => setCol({ startFrom: d, startTo: d })} />,
       className: 'whitespace-nowrap',
       render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedStartTime)}</span>,
     },
     {
       key: 'endTime',
       header: 'End Time',
-      filter: <ColumnFilter label="End time" type="date" value={{ from: filters.endFrom ?? '', to: filters.endTo ?? '' }} onChange={(r) => setCol({ endFrom: r.from, endTo: r.to })} />,
+      filter: <ColumnFilter label="End time" type="date" value={filters.endFrom ?? ''} onChange={(d) => setCol({ endFrom: d, endTo: d })} />,
       className: 'whitespace-nowrap',
       render: (row) => <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dateTime(row.estimatedEndTime)}</span>,
     },

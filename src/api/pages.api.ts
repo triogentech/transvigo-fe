@@ -1,3 +1,4 @@
+import { withDayBounds } from '../lib/day-range';
 import { get } from './client';
 import type {
   ActivityLog, Driver, FuelLog, GarageLog, Role, RolePermission, TollLog,
@@ -54,7 +55,7 @@ export interface TripsPageParams {
   /** Column filters (combine with each other, the tabs and the search). */
   tripNumber?: string; vehicleNumber?: string; startFrom?: string; startTo?: string; endFrom?: string; endTo?: string;
 }
-export const getTripsPage = (params?: TripsPageParams) => get<TripsPage>('/api/pages/trips', params);
+export const getTripsPage = (params?: TripsPageParams) => get<TripsPage>('/api/pages/trips', params && withDayBounds(params));
 
 export interface TripDetailPage {
   trip: Trip;
