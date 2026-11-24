@@ -7,7 +7,10 @@ import { clearSelectCache } from '../../api/select.api';
 function invalidateVehicles(): void {
   invalidatePageCache('/api/pages/vehicles');
   invalidatePageCache('/api/pages/dashboard');
+  invalidatePageCache('/api/pages/drivers'); // a driver's vehicle changes with it
+  invalidatePageCache('/api/pages/trips');
   clearSelectCache('vehicles');
+  clearSelectCache('drivers');
 }
 
 export function useVehiclesActions() {

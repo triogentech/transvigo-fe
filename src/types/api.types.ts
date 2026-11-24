@@ -113,20 +113,25 @@ export type AccountType = 'savings' | 'current' | 'salary' | 'fixed_deposit' | '
 export interface Driver {
   id: string; orgId: string; userId?: string;
   fullName: string; countryDialCode: string; contactNumber: string;
-  emgCountryDialCode: string; emgContactNumber: string;
-  aadhaarNumber: string; panNumber?: string;
-  address: string; reference?: string;
-  currentStatus: DriverStatus; drivingLicenceNumber: string;
-  accountHolderName: string; accountNumber: string;
-  branchName: string; ifscCode: string; accountType: AccountType;
+  emgCountryDialCode: string; emgContactNumber?: string | null;
+  aadhaarNumber?: string | null; panNumber?: string | null;
+  address?: string | null; reference?: string | null;
+  currentStatus: DriverStatus; drivingLicenceNumber?: string | null;
+  accountHolderName?: string | null; accountNumber?: string | null;
+  branchName?: string | null; ifscCode?: string | null; accountType?: AccountType | null;
+  /** The vehicle(s) that belong to this driver. */
+  assignedVehicles?: Array<{ id: string; vehicleNumber: string; currentStatus?: string }>;
   createdAt: string; updatedAt: string;
 }
+/** Only the name and the phone number are required; everything else can be added later. */
 export interface CreateDriverBody {
   fullName: string; countryDialCode?: string; contactNumber: string;
-  emgCountryDialCode?: string; emgContactNumber: string;
-  aadhaarNumber: string; panNumber?: string; address: string; reference?: string;
-  drivingLicenceNumber: string; accountHolderName: string; accountNumber: string;
-  branchName: string; ifscCode: string; accountType: AccountType; userId?: string;
+  emgCountryDialCode?: string; emgContactNumber?: string;
+  aadhaarNumber?: string; panNumber?: string; address?: string; reference?: string;
+  drivingLicenceNumber?: string; accountHolderName?: string; accountNumber?: string;
+  branchName?: string; ifscCode?: string; accountType?: AccountType; userId?: string;
+  /** Assign this vehicle to the new driver. */
+  vehicleId?: string;
 }
 
 // ── Staff ──

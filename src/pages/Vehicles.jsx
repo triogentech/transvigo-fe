@@ -641,6 +641,8 @@ function AssignDriverModal({ vehicle, onClose, updateVehicle, refetch }) {
   }, [vehicle]);
 
   if (!vehicle) return null;
+  // A vehicle's driver cannot change while it is in transit: only once the trip is completed.
+  const locked = vehicle.currentStatus === 'in_transit';
 
   async function handleSave() {
     setSaving(true);
@@ -671,12 +673,17 @@ function AssignDriverModal({ vehicle, onClose, updateVehicle, refetch }) {
       footer={
         <>
           <button className="btn-ghost px-4 py-2" style={{ fontSize: 13 }} onClick={onClose} disabled={saving}>Cancel</button>
-          <LoadingButton className="btn-brand px-4 py-2" style={{ fontSize: 13 }} loading={saving} onClick={handleSave}>Save</LoadingButton>
+          <LoadingButton className="btn-brand px-4 py-2" style={{ fontSize: 13 }} loading={saving} onClick={handleSave} disabled={locked}>Save</LoadingButton>
         </>
       }
     >
       <label style={labelStyle}>Driver</label>
-      <TVSelect value={driverId} onValueChange={setDriverId} options={options} className="w-full" style={{ width: '100%' }} />
+      <TVSelect value={driverId} onValueChange={setDriverId} options={options} className="w-full" style={{ width: '100%' }} disabled={locked} />
+      {locked && (
+        <div role="alert" style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)' }}>
+          {vehicle.vehicleNumber} is in transit. Its driver can be changed once the trip is completed.
+        </div>
+      )}
     </Modal>
   );
 }

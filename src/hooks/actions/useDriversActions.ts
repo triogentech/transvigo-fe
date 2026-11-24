@@ -6,7 +6,9 @@ import { clearSelectCache } from '../../api/select.api';
 
 function invalidateDrivers(): void {
   invalidatePageCache('/api/pages/drivers');
+  invalidatePageCache('/api/pages/vehicles'); // a vehicle's driver changes with it
   clearSelectCache('drivers');
+  clearSelectCache('vehicles');
 }
 
 export function useDriversActions() {
@@ -37,5 +39,14 @@ export function useDriversActions() {
     [],
   );
 
-  return { createDriver, updateDriver, deleteDriver };
+  const assignVehicle = useCallback(
+    async (id: string, vehicleId: string | null) => {
+      const result = await driversApi.assignDriverVehicle(id, vehicleId);
+      invalidateDrivers();
+      return result;
+    },
+    [],
+  );
+
+  return { createDriver, updateDriver, deleteDriver, assignVehicle };
 }
