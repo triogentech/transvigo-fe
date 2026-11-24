@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDriversPage } from '../../api/pages.api';
 import { errMessage } from '../../api/client';
 import { usePageCacheListener } from '../usePageCache';
@@ -28,15 +28,18 @@ export function useDriversPage(initial?: Record<string, unknown>): {
     setFiltersState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  const latest = useRef(0);
   const refetch = useCallback(async () => {
+    const mine = ++latest.current; // typing in a filter fires many requests: only the newest one may fill the page
     setLoading(true);
     setError(null);
     try {
-      setData(await getDriversPage(filters));
+      const res = await getDriversPage(filters);
+      if (mine === latest.current) setData(res);
     } catch (err) {
-      setError(errMessage(err, 'Failed to load drivers'));
+      if (mine === latest.current) setError(errMessage(err, 'Failed to load drivers'));
     } finally {
-      setLoading(false);
+      if (mine === latest.current) setLoading(false);
     }
   }, [filters]);
 
