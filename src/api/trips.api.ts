@@ -1,4 +1,4 @@
-import { getPage, get, post, put, del } from './client';
+import { getPage, get, post, put, patch, del } from './client';
 import type { Trip, TripFilters, PaginatedResponse, CreateTripBody, TripStatus } from '../types/api.types';
 export type { CreateTripBody };
 
@@ -26,3 +26,11 @@ export const updateTripStatus = (id: string, status: TripStatus, actualEndTime?:
   });
 
 export const deleteTrip = (id: string) => del<void>(`/api/trips/${id}`);
+
+export interface ApprovalResult {
+  done: Array<{ id: string; tripNumber: string; stage: 'start' | 'close'; decision: 'approve' | 'needs_changes' }>;
+  skipped: Array<{ id: string; reason: string }>;
+}
+/** Approve (or send back with a note) trips a driver created ('start') or closed ('close'). */
+export const decideTripApproval = (body: { tripIds: string[]; stage: 'start' | 'close'; decision: 'approve' | 'needs_changes'; note?: string }) =>
+  patch<ApprovalResult>('/api/trips/approval', body);
