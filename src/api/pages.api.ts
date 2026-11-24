@@ -51,6 +51,8 @@ export interface TripsPageParams {
   page?: number; pageSize?: number; status?: TripStatus;
   driverId?: string; vehicleId?: string; loadProviderId?: string;
   dateFrom?: string; dateTo?: string; search?: string;
+  /** Column filters (combine with each other, the tabs and the search). */
+  tripNumber?: string; vehicleNumber?: string; startFrom?: string; startTo?: string; endFrom?: string; endTo?: string;
 }
 export const getTripsPage = (params?: TripsPageParams) => get<TripsPage>('/api/pages/trips', params);
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { getSelect, type SelectOption } from '../api/select.api';
@@ -47,17 +47,20 @@ export default function PaymentTallyPage() {
   const [form, setForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const latest = useRef(0);
   const load = useCallback(async () => {
+    const mine = ++latest.current; // typing in a filter fires many requests: only the newest one may fill the table
     setLoading(true);
     setError(null);
     try {
       const res = await getTripBills(filters);
+      if (mine !== latest.current) return;
       setRows(res.data);
       setSummary(res.summary);
     } catch (e) {
-      setError(errMessage(e));
+      if (mine === latest.current) setError(errMessage(e));
     } finally {
-      setLoading(false);
+      if (mine === latest.current) setLoading(false);
     }
   }, [filters]);
 
@@ -164,11 +167,22 @@ export default function PaymentTallyPage() {
           <option value="partial">Part paid</option>
           <option value="paid">Paid</option>
         </select>
-        <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip closed
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.dateFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
+      </div>
+      <div className="flex gap-3 flex-wrap items-center">
+        <SearchInput width={190} value={filters.invoiceNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, invoiceNumber: v || undefined }))} placeholder="Invoice number" />
+        <SearchInput width={170} value={filters.tripNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, tripNumber: v || undefined }))} placeholder="Trip number" />
+        <SearchInput width={170} value={filters.vehicleNumber ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, vehicleNumber: v || undefined }))} placeholder="Vehicle number" />
+        <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip start
+          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripStartFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripStartFrom: e.target.value || undefined }))} />
           <span>to</span>
-          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.dateTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
+          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripStartTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripStartTo: e.target.value || undefined }))} />
         </label>
+        <label className="flex items-center gap-2" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip close
+          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripCloseFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripCloseFrom: e.target.value || undefined }))} />
+          <span>to</span>
+          <input className="tv-input" style={{ width: 150 }} type="date" value={filters.tripCloseTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tripCloseTo: e.target.value || undefined }))} />
+        </label>
+        {Object.values(filters).some(Boolean) && <button className="btn-ghost px-3 py-1.5" style={{ fontSize: 13 }} onClick={() => setFilters({})}>Clear filters</button>}
       </div>
 
       <div style={{ overflowX: 'auto' }}>

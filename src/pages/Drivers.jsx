@@ -549,7 +549,7 @@ function AssignVehicleModal({ driver, onClose, onDone }) {
 
 // ── Main Page ──
 export default function Drivers() {
-  const { drivers, summary, loading, error, refetch, setFilters } = useDriversPage();
+  const { drivers, meta, summary, loading, error, refetch, filters, setFilters } = useDriversPage({ page: 1, pageSize: 12 });
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [assignDriver, setAssignDriver] = useState(null);
@@ -577,12 +577,21 @@ export default function Drivers() {
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
       {/* Search (server-side: name / contact number) */}
-      <div style={{ marginBottom: 16 }}>
+      <div className="flex gap-3 flex-wrap items-center" style={{ marginBottom: 16 }}>
         <SearchInput
           value={search}
           onChange={(v) => { setSearch(v); setFilters({ search: v || undefined, page: 1 }); }}
           placeholder="Search drivers…"
         />
+        <select className="tv-input" style={{ width: 170 }} value={filters.status ?? ''} onChange={(e) => setFilters({ status: e.target.value || undefined, page: 1 })}>
+          <option value="">All statuses</option>
+          <option value="available">Available</option>
+          <option value="assigned">Assigned</option>
+          <option value="in_transit">On trip</option>
+        </select>
+        {(filters.status || search) && (
+          <button className="btn-ghost px-3 py-1.5" style={{ fontSize: 13 }} onClick={() => { setSearch(''); setFilters({ status: undefined, search: undefined, page: 1 }); }}>Clear filters</button>
+        )}
       </div>
 
       {/* 2. Stats row */}
@@ -732,6 +741,24 @@ export default function Drivers() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination: the list is paged by the server (12 a page) */}
+      {!loading && meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between px-1" style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 16 }}>
+          <span className="font-mono">{meta.total} drivers</span>
+          <div className="flex items-center gap-2">
+            <button className="btn-ghost px-3 py-1" style={{ fontSize: 12 }} disabled={meta.page <= 1} onClick={() => setFilters({ page: meta.page - 1 })}>Prev</button>
+            <span className="font-mono">{meta.page} / {meta.totalPages}</span>
+            <button className="btn-ghost px-3 py-1" style={{ fontSize: 12 }} disabled={meta.page >= meta.totalPages} onClick={() => setFilters({ page: meta.page + 1 })}>Next</button>
+          </div>
+          <TVSelect
+            small
+            value={String(filters.pageSize ?? 12)}
+            onValueChange={(v) => setFilters({ pageSize: Number(v), page: 1 })}
+            options={[{ value: '12', label: '12' }, { value: '24', label: '24' }, { value: '48', label: '48' }]}
+          />
         </div>
       )}
 

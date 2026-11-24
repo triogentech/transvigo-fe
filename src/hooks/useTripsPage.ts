@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getTripsPage, type TripsPage, type TripsPageParams } from '../api/pages.api';
 import { errMessage } from '../api/client';
 
@@ -13,15 +13,18 @@ export function useTripsPage(initial?: TripsPageParams) {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<TripsPageParams>(initial ?? { page: 1, pageSize: 10 });
 
+  const latest = useRef(0);
   const refetch = useCallback(async () => {
+    const mine = ++latest.current; // typing in a filter fires many requests: only the newest one may fill the page
     setLoading(true);
     setError(null);
     try {
-      setData(await getTripsPage(filters));
+      const res = await getTripsPage(filters);
+      if (mine === latest.current) setData(res);
     } catch (err) {
-      setError(errMessage(err, 'Failed to load trips'));
+      if (mine === latest.current) setError(errMessage(err, 'Failed to load trips'));
     } finally {
-      setLoading(false);
+      if (mine === latest.current) setLoading(false);
     }
   }, [filters]);
 

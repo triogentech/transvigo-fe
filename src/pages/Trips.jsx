@@ -76,6 +76,12 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
     driverId: filters.driverId || '',
     vehicleId: filters.vehicleId || '',
     loadProviderId: filters.loadProviderId || '',
+    tripNumber: filters.tripNumber || '',
+    vehicleNumber: filters.vehicleNumber || '',
+    startFrom: filters.startFrom || '',
+    startTo: filters.startTo || '',
+    endFrom: filters.endFrom || '',
+    endTo: filters.endTo || '',
   });
   const set = (k, v) => setLocal((f) => ({ ...f, [k]: v }));
 
@@ -110,6 +116,36 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Filters</div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Trip number</div>
+          <input value={local.tripNumber} onChange={(e) => set('tripNumber', e.target.value)} placeholder="e.g. 8443" style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vehicle number</div>
+          <input value={local.vehicleNumber} onChange={(e) => set('vehicleNumber', e.target.value)} placeholder="e.g. HR55" style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Start time from</div>
+          <input type="date" value={local.startFrom} onChange={(e) => set('startFrom', e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Start time to</div>
+          <input type="date" value={local.startTo} onChange={(e) => set('startTo', e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>End time from</div>
+          <input type="date" value={local.endFrom} onChange={(e) => set('endFrom', e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>End time to</div>
+          <input type="date" value={local.endTo} onChange={(e) => set('endTo', e.target.value)} style={inputStyle} />
+        </div>
+      </div>
 
       <div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Status</div>
@@ -169,7 +205,7 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
       </div>
 
       <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Load Provider</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vendor</div>
         <TVSelect
           value={local.loadProviderId}
           onValueChange={(v) => set('loadProviderId', v)}
@@ -191,7 +227,7 @@ function FilterPopover({ filters, onApply, onReset, allDrivers, allVehicles, all
           className="btn-ghost px-3 py-1.5"
           style={{ fontSize: 13 }}
           onClick={() => {
-            const reset = { status: '', dateFrom: '', dateTo: '', driverId: '', vehicleId: '', loadProviderId: '' };
+            const reset = { status: '', dateFrom: '', dateTo: '', driverId: '', vehicleId: '', loadProviderId: '', tripNumber: '', vehicleNumber: '', startFrom: '', startTo: '', endFrom: '', endTo: '' };
             setLocal(reset);
             onReset();
           }}
@@ -333,13 +369,17 @@ function TripFlowCard({ trip, onApprove, onSendBack }) {
 
 function EditTripModal({ trip, onClose, onSaved, allLoadProviders = [] }) {
   const toast = useToast();
-  const [form, setForm] = useState({ freight: '', advance: '', distance: '', tatHours: '', provider: '', dispatch: '', closing: '' });
+  const [form, setForm] = useState({ tripNumber: '', startPoint: '', endPoint: '', estStart: '', freight: '', advance: '', distance: '', tatHours: '', provider: '', dispatch: '', closing: '' });
   const [points, setPoints] = useState([]);
   const [saving, setSaving] = useState(false);
   const toLocal = (v) => (v ? toDatetimeLocalValue(new Date(v)) : '');
   useEffect(() => {
     if (!trip) return;
     setForm({
+      tripNumber: trip.tripNumber ?? '',
+      startPoint: trip.startPoint ?? '',
+      endPoint: trip.endPoint ?? '',
+      estStart: toLocal(trip.estimatedStartTime),
       freight: String(trip.freightTotalAmount ?? 0),
       advance: String(trip.advanceAmount ?? 0),
       distance: String(trip.totalTripDistanceKm ?? 0),
@@ -375,7 +415,15 @@ function EditTripModal({ trip, onClose, onSaved, allLoadProviders = [] }) {
       toast({ title: 'Check the TAT', description: 'The TAT must be more than 0 hours.', color: 'var(--danger)' });
       return;
     }
-    const start = new Date(form.dispatch || trip.estimatedStartTime);
+    if (!form.tripNumber.trim()) {
+      toast({ title: 'Check the trip ID', description: 'Enter the trip ID.', color: 'var(--danger)' });
+      return;
+    }
+    if (!form.startPoint.trim() || !form.endPoint.trim()) {
+      toast({ title: 'Check the route', description: 'Enter the start and the end point.', color: 'var(--danger)' });
+      return;
+    }
+    const start = new Date(form.dispatch || form.estStart || trip.estimatedStartTime);
     const closing = form.closing ? new Date(form.closing) : null;
     if (closing && closing <= start) {
       toast({ title: 'Check the closing time', description: 'The closing time must be after the dispatch time.', color: 'var(--danger)' });
@@ -391,6 +439,10 @@ function EditTripModal({ trip, onClose, onSaved, allLoadProviders = [] }) {
     setSaving(true);
     try {
       await apiUpdateTrip(trip.id, {
+        ...(form.tripNumber.trim() !== trip.tripNumber ? { tripNumber: form.tripNumber.trim() } : {}),
+        startPoint: form.startPoint.trim(),
+        endPoint: form.endPoint.trim(),
+        ...(form.estStart ? { estimatedStartTime: iso(form.estStart) } : {}),
         freightTotalAmount: Math.round(freight),
         advanceAmount: Math.round(advance),
         ...(Number(form.distance) > 0 ? { totalTripDistanceKm: Math.round(Number(form.distance)) } : {}),
@@ -421,8 +473,28 @@ function EditTripModal({ trip, onClose, onSaved, allLoadProviders = [] }) {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {trip.startPoint} → {trip.endPoint} · {trip.currentStatus === 'completed' ? 'Completed' : trip.currentStatus === 'in_transit' ? 'In transit' : 'Not started'}.
-          {' '}Driver and vehicle can't be changed here. The penalty and the bill are recalculated when you save.
+          {trip.currentStatus === 'completed' ? 'Completed' : trip.currentStatus === 'in_transit' ? 'In transit' : 'Not started'}.
+          {' '}Everything can be changed here except the driver and the vehicle. The penalty and the bill are recalculated when you save.
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Trip ID</label>
+            <input style={inputStyle} className="font-mono" value={form.tripNumber} onChange={(e) => set('tripNumber', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Planned start</label>
+            <input style={inputStyle} type="datetime-local" value={form.estStart} onChange={(e) => set('estStart', e.target.value)} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Start point</label>
+            <input style={inputStyle} value={form.startPoint} onChange={(e) => set('startPoint', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>End point</label>
+            <input style={inputStyle} value={form.endPoint} onChange={(e) => set('endPoint', e.target.value)} />
+          </div>
         </div>
         <div>
           <label style={labelStyle}>Vendor (load provider)</label>
@@ -1368,7 +1440,7 @@ export default function Trips() {
     approval: statusCounts?.pendingApproval ?? 0,
   };
 
-  const hasFilters = !!(filters.status || filters.dateFrom || filters.dateTo || filters.driverId || filters.vehicleId || filters.loadProviderId);
+  const hasFilters = !!(filters.status || filters.dateFrom || filters.dateTo || filters.driverId || filters.vehicleId || filters.loadProviderId || filters.tripNumber || filters.vehicleNumber || filters.startFrom || filters.startTo || filters.endFrom || filters.endTo);
 
   async function handleMarkInTransit(trip) {
     try {
@@ -1689,6 +1761,12 @@ export default function Trips() {
                   driverId: f.driverId || undefined,
                   vehicleId: f.vehicleId || undefined,
                   loadProviderId: f.loadProviderId || undefined,
+                  tripNumber: f.tripNumber.trim() || undefined,
+                  vehicleNumber: f.vehicleNumber.trim() || undefined,
+                  startFrom: f.startFrom || undefined,
+                  startTo: f.startTo || undefined,
+                  endFrom: f.endFrom || undefined,
+                  endTo: f.endTo || undefined,
                   page: 1,
                 })}
                 onReset={() => {

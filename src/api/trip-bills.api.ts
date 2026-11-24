@@ -7,6 +7,14 @@ export interface TripBillFilters {
   dateFrom?: string;
   dateTo?: string;
   search?: string;
+  /** Column filters: they combine with each other, the status and the search. */
+  invoiceNumber?: string;
+  tripNumber?: string;
+  vehicleNumber?: string;
+  tripStartFrom?: string;
+  tripStartTo?: string;
+  tripCloseFrom?: string;
+  tripCloseTo?: string;
 }
 export interface TripBillsResponse { data: TripBill[]; summary: TripBillSummary }
 
