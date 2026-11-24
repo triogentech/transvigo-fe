@@ -329,6 +329,9 @@ export interface Ticket {
   allottedTimeHours: number;
   ticketDate?: string | null;
   openedAt: string;
+  /** A driver's report must be acknowledged by this time (30 / 60 / 120 / 180 minutes by priority). Not set for tickets the office raised. */
+  ackSlaDueAt?: string | null;
+  ackOnTime?: boolean | null;
   acknowledgedAt?: string | null;
   inProgressAt?: string | null;
   resolvedAt?: string | null;

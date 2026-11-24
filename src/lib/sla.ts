@@ -54,6 +54,24 @@ export function formatSla(
   return overdue ? `${label} overdue` : `${label} left`;
 }
 
+/**
+ * Acknowledgement deadline of a driver's "Report Issue" ticket (the same rule as a maintenance report):
+ * "Acknowledge in 25m" / "Overdue by 1h 5m" / "Acknowledged on time" / "Acknowledged late". Null when the ticket has none.
+ */
+export function ackSlaLabel(
+  t: { ackSlaDueAt?: string | null; ackOnTime?: boolean | null; acknowledgedAt?: string | null; status: string },
+  now: Date = new Date(),
+): { text: string; color: string } | null {
+  if (!t.ackSlaDueAt) return null;
+  if (t.ackOnTime === true) return { text: 'Acknowledged on time', color: 'var(--success)' };
+  if (t.ackOnTime === false) return { text: 'Acknowledged late', color: 'var(--danger)' };
+  if (t.status !== 'open') return null; // moved on without a recorded response (older data)
+  const left = (new Date(t.ackSlaDueAt).getTime() - now.getTime()) / 60000;
+  const m = Math.abs(Math.round(left));
+  const d = m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  return left < 0 ? { text: `Overdue by ${d}`, color: 'var(--danger)' } : { text: `Acknowledge in ${d}`, color: left <= 15 ? 'var(--warning)' : 'var(--text-muted)' };
+}
+
 export function slaColor(st: SlaStatus): string {
   if (st === 'breached' || st === 'resolved_late') return 'var(--danger)';
   if (st === 'at_risk') return 'var(--warning)';
