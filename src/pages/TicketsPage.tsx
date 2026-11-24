@@ -6,7 +6,7 @@ import { getSelect, type SelectOption } from '../api/select.api';
 import { useToast } from '../context/ToastContext';
 import { errMessage } from '../api/client';
 import { shortDate } from '../lib/utils.js';
-import { formatSla, slaColor, slaStatus } from '../lib/sla';
+import { ackSlaLabel, formatSla, slaColor, slaStatus } from '../lib/sla';
 import type {
   CreateTicketBody, Ticket, TicketHistoryEntry, TicketIssueType, TicketPriority, TicketStatus,
 } from '../types/api.types';
@@ -156,6 +156,7 @@ function TicketDetailModal({ ticketId, open, onOpenChange, onChanged }: {
             <KV label="SLA" value={formatSla(ticket.openedAt, ticket.priority, ticket.resolvedAt)}
               color={slaColor(slaStatus(ticket.openedAt, ticket.priority, ticket.resolvedAt))} />
             <KV label="Opened" value={shortDate(ticket.openedAt)} />
+            {ackSlaLabel(ticket) ? <KV label="Acknowledge" value={ackSlaLabel(ticket)!.text} color={ackSlaLabel(ticket)!.color} /> : null}
           </div>
 
           {/* Stage timeline — timestamp (and actor) captured at each stage */}
@@ -393,6 +394,9 @@ function TicketCard({ t, onOpen, onAdvance, busy }: {
           {formatSla(t.openedAt, t.priority, t.resolvedAt)}
         </span>
       </div>
+      {ackSlaLabel(t) && (
+        <div style={{ fontSize: 11, marginTop: 2, color: ackSlaLabel(t)!.color, fontWeight: 600 }}>{ackSlaLabel(t)!.text}</div>
+      )}
       {t.assignedToUser && (
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 5, height: 5, borderRadius: 3, background: 'var(--accent-teal)' }} />
@@ -501,6 +505,13 @@ export default function TicketsPage() {
     { key: 'issueType', header: 'Issue', render: (r: Ticket) => titleCase(r.issueType) },
     { key: 'priority', header: 'Priority', render: (r: Ticket) => <PriorityPill p={r.priority} /> },
     { key: 'status', header: 'Status', render: (r: Ticket) => <StatusPill s={r.status} /> },
+    {
+      key: 'ack', header: 'Acknowledge',
+      render: (r: Ticket) => {
+        const a = ackSlaLabel(r);
+        return a ? <span style={{ fontSize: 12, color: a.color }}>{a.text}</span> : <span style={{ color: 'var(--text-dim)' }}>—</span>;
+      },
+    },
     {
       key: 'sla', header: 'SLA',
       render: (r: Ticket) => (
