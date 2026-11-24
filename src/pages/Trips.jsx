@@ -497,6 +497,22 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
 
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // A vehicle and its driver go together: choosing one fills in the other (and either can still be changed).
+  // driverAuto / vehicleAuto remember that a field was filled in for you, so a later choice can replace it.
+  const driverOptions = (freeDrivers) => freeDrivers ?? allDrivers ?? [];
+  const pickDriver = (id) => setForm((f) => {
+    const d = driverOptions(freeDrivers).find((x) => x.value === id);
+    const fillVehicle = id && !f.vehicleId && d?.meta?.vehicleId;
+    return { ...f, driverId: id, driverAuto: false, ...(fillVehicle ? { vehicleId: d.meta.vehicleId, vehicleLabel: d.meta.vehicleNumber ?? '', vehicleAuto: true } : {}) };
+  });
+  const pickVehicle = (v, opt) => setForm((f) => {
+    const did = opt?.meta?.driverId;
+    // only a driver who is free to take a trip can be filled in (the driver list hides drivers who are away in transit)
+    const free = did && driverOptions(freeDrivers).some((x) => x.value === did);
+    const fillDriver = v && free && (!f.driverId || f.driverAuto);
+    return { ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleAuto: false, ...(fillDriver ? { driverId: did, driverAuto: true } : {}) };
+  });
+
   // Format a Date into the local "YYYY-MM-DDTHH:mm" string a datetime-local input expects.
   const toDatetimeLocal = (date) => {
     const pad = (n) => String(n).padStart(2, '0');
@@ -788,10 +804,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
             <label style={labelStyle}>Driver <span style={{ color: 'var(--text-dim)' }}>(optional — can be assigned later)</span></label>
             <TVSelect
               value={form.driverId}
-              onValueChange={(v) => setF('driverId', v)}
+              onValueChange={pickDriver}
               placeholder="Select Driver"
               options={DRIVER_OPTIONS_MODAL}
             />
+            {form.driverAuto && form.driverId && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>Filled in from the vehicle. Change it if someone else is driving.</div>
+            )}
           </div>
 
           <div>
@@ -801,10 +820,13 @@ function CreateTripModal({ open, onOpenChange, createTrip, allDrivers, allLoadPr
               value={form.vehicleId}
               valueLabel={form.vehicleLabel}
               status="idle,assigned"
-              onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '' }))}
+              onChange={pickVehicle}
               placeholder="Select Vehicle"
               emptyLabel="No free vehicles (vehicles on a trip in transit are hidden)"
             />
+            {form.vehicleAuto && form.vehicleId && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>Filled in from the driver. Change it if another vehicle is used.</div>
+            )}
             <Err k="vehicleId" />
           </div>
 

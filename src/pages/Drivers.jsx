@@ -9,6 +9,7 @@ import {
 } from '../components/ui.jsx';
 import { SkeletonGrid, SkeletonTable, ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
+import { AsyncSelect } from '../components/AsyncSelect.tsx';
 import { cx } from '../lib/utils.js';
 import { formatINR, shortDate } from '../lib/utils.js';
 import { useDriversPage } from '../hooks/pages/useDriversPage';
@@ -30,7 +31,8 @@ const EMPTY_DRIVER = {
   fullName: '', countryDialCode: '+91', contactNumber: '',
   emgCountryDialCode: '+91', emgContactNumber: '', address: '', reference: '',
   aadhaarNumber: '', panNumber: '', drivingLicenceNumber: '',
-  accountHolderName: '', accountNumber: '', branchName: '', ifscCode: '', accountType: 'savings',
+  accountHolderName: '', accountNumber: '', branchName: '', ifscCode: '', accountType: '',
+  vehicleId: '', vehicleLabel: '', vehicleDriver: '',
 };
 
 // ── Labelled form field ──
@@ -53,35 +55,36 @@ function AddDriverModal({ open, onOpenChange, onCreated }) {
 
   React.useEffect(() => { if (open) setForm(EMPTY_DRIVER); }, [open]);
 
-  const REQUIRED = [
-    'fullName', 'contactNumber', 'emgContactNumber', 'address', 'aadhaarNumber',
-    'drivingLicenceNumber', 'accountHolderName', 'accountNumber', 'branchName', 'ifscCode',
-  ];
+  // Only the name and the phone number are needed. Everything else can be added later.
+  const REQUIRED = { fullName: 'the driver\'s name', contactNumber: 'the phone number' };
+  const clean = (v) => String(v ?? '').trim() || undefined;
 
   const submit = async () => {
-    for (const k of REQUIRED) {
-      if (!String(form[k]).trim()) { toast.error('Please fill all required fields'); return; }
+    for (const [k, what] of Object.entries(REQUIRED)) {
+      if (!String(form[k]).trim()) { toast.error(`Enter ${what}`); return; }
     }
     setSubmitting(true);
     try {
-      await createDriver({
+      const created = await createDriver({
         fullName: form.fullName.trim(),
         countryDialCode: form.countryDialCode || '+91',
         contactNumber: form.contactNumber.trim(),
         emgCountryDialCode: form.emgCountryDialCode || '+91',
-        emgContactNumber: form.emgContactNumber.trim(),
-        aadhaarNumber: form.aadhaarNumber.trim(),
-        panNumber: form.panNumber.trim() || undefined,
-        address: form.address.trim(),
-        reference: form.reference.trim() || undefined,
-        drivingLicenceNumber: form.drivingLicenceNumber.trim(),
-        accountHolderName: form.accountHolderName.trim(),
-        accountNumber: form.accountNumber.trim(),
-        branchName: form.branchName.trim(),
-        ifscCode: form.ifscCode.trim().toUpperCase(),
-        accountType: form.accountType,
+        emgContactNumber: clean(form.emgContactNumber),
+        aadhaarNumber: clean(form.aadhaarNumber),
+        panNumber: clean(form.panNumber),
+        address: clean(form.address),
+        reference: clean(form.reference),
+        drivingLicenceNumber: clean(form.drivingLicenceNumber),
+        accountHolderName: clean(form.accountHolderName),
+        accountNumber: clean(form.accountNumber),
+        branchName: clean(form.branchName),
+        ifscCode: clean(form.ifscCode)?.toUpperCase(),
+        accountType: form.accountType || undefined,
+        vehicleId: form.vehicleId || undefined,
       });
-      toast.success('Driver added');
+      const av = created?.assignedVehicle;
+      toast.success(av ? `Driver added. ${av.vehicleNumber} is now theirs${av.replacedDriverName ? ` (moved from ${av.replacedDriverName})` : ''}.` : 'Driver added');
       onOpenChange(false);
       onCreated?.();
     } catch (e) {
@@ -108,22 +111,43 @@ function AddDriverModal({ open, onOpenChange, onCreated }) {
       title="Add Driver"
       footer={<LoadingButton className="btn-brand" loading={submitting} onClick={submit}>Save Driver</LoadingButton>}
     >
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+        Only the name and the phone number are needed. You can add the other details later.
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
-        <Field label="Full Name *" span>{input('fullName', 'Driver full name')}</Field>
+        <Field label="Full Name *">{input('fullName', 'Driver full name')}</Field>
         <Field label="Contact Number *">{input('contactNumber', '9876543210', true)}</Field>
-        <Field label="Emergency Contact *">{input('emgContactNumber', '9876543210', true)}</Field>
-        <Field label="Address *" span>{input('address', 'Residential address')}</Field>
-        <Field label="Aadhaar Number *">{input('aadhaarNumber', '1234 5678 9012', true)}</Field>
-        <Field label="PAN (optional)">{input('panNumber', 'ABCDE1234F', true)}</Field>
-        <Field label="Driving Licence *" span>{input('drivingLicenceNumber', 'DL number', true)}</Field>
-        <Field label="Account Holder *">{input('accountHolderName', 'As per bank')}</Field>
-        <Field label="Account Number *">{input('accountNumber', 'Bank account no.', true)}</Field>
-        <Field label="Branch *">{input('branchName', 'Branch name')}</Field>
-        <Field label="IFSC *">{input('ifscCode', 'SBIN0001234', true)}</Field>
-        <Field label="Account Type *">
-          <TVSelect value={form.accountType} onValueChange={(v) => set('accountType', v)} options={ACCOUNT_TYPES} />
+        <Field label="Vehicle (optional)" span>
+          <AsyncSelect
+            entity="vehicles"
+            value={form.vehicleId}
+            valueLabel={form.vehicleLabel}
+            onChange={(v, opt) => setForm((f) => ({ ...f, vehicleId: v, vehicleLabel: opt?.label ?? '', vehicleDriver: opt?.meta?.driverName ?? '' }))}
+            placeholder="Assign a vehicle to this driver"
+            clearable
+            clearLabel="No vehicle"
+            emptyLabel="No vehicles found"
+          />
+          {form.vehicleDriver && (
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--warning)' }}>
+              {form.vehicleLabel} is currently {form.vehicleDriver}&apos;s. It will move to this driver.
+            </div>
+          )}
         </Field>
-        <Field label="Reference (optional)">{input('reference', 'Referred by')}</Field>
+        <div style={{ gridColumn: 'span 2', fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>More details (optional)</div>
+        <Field label="Emergency Contact">{input('emgContactNumber', '9876543210', true)}</Field>
+        <Field label="Driving Licence">{input('drivingLicenceNumber', 'DL number', true)}</Field>
+        <Field label="Aadhaar Number">{input('aadhaarNumber', '1234 5678 9012', true)}</Field>
+        <Field label="PAN">{input('panNumber', 'ABCDE1234F', true)}</Field>
+        <Field label="Address" span>{input('address', 'Residential address')}</Field>
+        <Field label="Account Holder">{input('accountHolderName', 'As per bank')}</Field>
+        <Field label="Account Number">{input('accountNumber', 'Bank account no.', true)}</Field>
+        <Field label="Branch">{input('branchName', 'Branch name')}</Field>
+        <Field label="IFSC">{input('ifscCode', 'SBIN0001234', true)}</Field>
+        <Field label="Account Type">
+          <TVSelect value={form.accountType} onValueChange={(v) => set('accountType', v)} options={[{ value: '', label: 'Not set' }, ...ACCOUNT_TYPES]} />
+        </Field>
+        <Field label="Reference">{input('reference', 'Referred by')}</Field>
       </div>
     </Modal>
   );
@@ -382,7 +406,7 @@ function DriverDetailModal({ driverId, driverName, driverStatus, open, onOpenCha
             <SubCard title="Personal">
               <KVRow label="Full Name" value={driver.fullName} />
               <KVRow label="Contact" value={`${driver.countryDialCode || ''} ${driver.contactNumber}`} mono />
-              <KVRow label="Emergency Contact" value={`${driver.emgCountryDialCode || ''} ${driver.emgContactNumber}`} mono />
+              <KVRow label="Emergency Contact" value={driver.emgContactNumber ? `${driver.emgCountryDialCode || ''} ${driver.emgContactNumber}` : null} mono />
               <KVRow label="Address" value={driver.address} />
             </SubCard>
 
@@ -450,11 +474,69 @@ function DriverDetailModal({ driverId, driverName, driverStatus, open, onOpenCha
   );
 }
 
+// ── Assign / change / remove a driver's vehicle ──
+function AssignVehicleModal({ driver, onClose, onDone }) {
+  const { assignVehicle } = useDriversActions();
+  const toast = useToast();
+  const [pick, setPick] = useState({ id: '', label: '', currentDriver: '' });
+  const [busy, setBusy] = useState(false);
+  React.useEffect(() => { setPick({ id: '', label: '', currentDriver: '' }); }, [driver]);
+  if (!driver) return null;
+  const mine = driver.assignedVehicles ?? [];
+
+  async function save(vehicleId) {
+    setBusy(true);
+    try {
+      const r = await assignVehicle(driver.id, vehicleId);
+      toast.success(vehicleId
+        ? `${pick.label} is now ${driver.fullName}'s${r.replacedDriverName ? ` (moved from ${r.replacedDriverName})` : ''}.${r.tripsUpdated ? ` ${r.tripsUpdated} waiting trip${r.tripsUpdated === 1 ? '' : 's'} now ${r.tripsUpdated === 1 ? 'has' : 'have'} this driver.` : ''}`
+        : 'Vehicle removed');
+      onDone();
+    } catch (e) {
+      toast.error(errMessage(e));
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => { if (!o && !busy) onClose(); }}
+      width={460}
+      title={`Vehicle for ${driver.fullName}`}
+      footer={<LoadingButton className="btn-brand" loading={busy} onClick={() => save(pick.id)} disabled={!pick.id}>Assign vehicle</LoadingButton>}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {mine.length ? <>Now: <span className="font-mono">{mine.map((v) => v.vehicleNumber).join(', ')}</span>.</> : 'No vehicle is assigned yet.'}
+          {' '}Trips that have not started and have no driver on the chosen vehicle will get this driver.
+        </div>
+        <AsyncSelect
+          entity="vehicles"
+          value={pick.id}
+          valueLabel={pick.label}
+          onChange={(v, opt) => setPick({ id: v, label: opt?.label ?? '', currentDriver: opt?.meta?.driverName ?? '' })}
+          placeholder="Choose a vehicle"
+          emptyLabel="No vehicles found"
+        />
+        {pick.currentDriver && pick.currentDriver !== driver.fullName && (
+          <div style={{ fontSize: 12, color: 'var(--warning)' }}>{pick.label} is currently {pick.currentDriver}&apos;s. It will move to {driver.fullName}.</div>
+        )}
+        {mine.length > 0 && (
+          <button className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--danger)' }} disabled={busy} onClick={() => save(null)}>
+            Remove {mine.length === 1 ? 'this vehicle' : 'all vehicles'} from {driver.fullName}
+          </button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ── Main Page ──
 export default function Drivers() {
   const { drivers, summary, loading, error, refetch, setFilters } = useDriversPage();
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [assignDriver, setAssignDriver] = useState(null);
   const [search, setSearch] = useState('');
 
   const total     = summary.total     ?? 0;
@@ -590,14 +672,21 @@ export default function Drivers() {
                     </div>
                   )}
 
-                  {/* Licence masked */}
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                    DL ••••-{driver.drivingLicenceNumber ? driver.drivingLicenceNumber.slice(-4) : '••••'}
+                  {/* The vehicle that belongs to this driver */}
+                  <div style={{ fontSize: 12, color: driver.assignedVehicles?.length ? 'var(--text-primary)' : 'var(--text-dim)' }}>
+                    {driver.assignedVehicles?.length
+                      ? <>Vehicle <span className="font-mono">{driver.assignedVehicles.map((v) => v.vehicleNumber).join(', ')}</span></>
+                      : 'No vehicle assigned'}
                   </div>
+
+                  {/* Licence masked (only when it has been added) */}
+                  {driver.drivingLicenceNumber ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>DL ••••-{driver.drivingLicenceNumber.slice(-4)}</div>
+                  ) : null}
                 </div>
 
-                {/* Footer: View Profile */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                {/* Footer: View Profile / Assign vehicle */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2, display: 'flex', gap: 16 }}>
                   <button
                     onClick={() => setSelectedDriver(driver)}
                     style={{
@@ -614,6 +703,14 @@ export default function Drivers() {
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
                   >
                     View Profile →
+                  </button>
+                  <button
+                    onClick={() => setAssignDriver(driver)}
+                    style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 12, color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'color 150ms ease' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--teal)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+                  >
+                    {driver.assignedVehicles?.length ? 'Change vehicle' : 'Assign vehicle'}
                   </button>
                 </div>
               </Card>
@@ -632,6 +729,8 @@ export default function Drivers() {
           onOpenChange={(open) => { if (!open) setSelectedDriver(null); }}
         />
       )}
+
+      <AssignVehicleModal driver={assignDriver} onClose={() => setAssignDriver(null)} onDone={() => { setAssignDriver(null); refetch(); }} />
 
       {/* 5. Add Driver Modal */}
       <AddDriverModal open={addOpen} onOpenChange={setAddOpen} onCreated={refetch} />

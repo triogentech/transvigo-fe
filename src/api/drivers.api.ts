@@ -9,6 +9,9 @@ export const getDriverById = (id: string) => get<Driver>(`/api/drivers/${id}`);
 export const createDriver = (body: CreateDriverBody) => post<Driver>('/api/drivers', body);
 export const updateDriver = (id: string, body: Partial<CreateDriverBody>) =>
   put<Driver>(`/api/drivers/${id}`, body);
+/** Give the driver a vehicle (moved from its previous driver), or take theirs away with null. */
+export const assignDriverVehicle = (id: string, vehicleId: string | null) =>
+  put<{ vehicleId: string | null; replacedDriverName: string | null; tripsUpdated: number }>(`/api/drivers/${id}/vehicle`, { vehicleId });
 export const deleteDriver = (id: string) => del<void>(`/api/drivers/${id}`);
 
 export interface DriverCredentials {
