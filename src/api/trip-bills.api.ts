@@ -1,3 +1,4 @@
+import { withDayBounds } from '../lib/day-range';
 import { get, put } from './client';
 import type { TripBill, TripBillStatus, TripBillSummary, UpdateTripBillBody } from '../types/api.types';
 
@@ -19,6 +20,6 @@ export interface TripBillFilters {
 export interface TripBillsResponse { data: TripBill[]; summary: TripBillSummary }
 
 export const getTripBills = (f: TripBillFilters = {}) =>
-  get<TripBillsResponse>('/api/trip-bills', { page: 1, pageSize: 200, ...f });
+  get<TripBillsResponse>('/api/trip-bills', { page: 1, pageSize: 200, ...withDayBounds(f) });
 
 export const updateTripBill = (id: string, body: UpdateTripBillBody) => put<TripBill>(`/api/trip-bills/${id}`, body);

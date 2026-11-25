@@ -108,7 +108,7 @@ export default function PaymentTallyPage() {
     <ColumnFilter label={label} type="text" value={filters[key] ?? ''} onChange={(v: string) => patch({ [key]: v })} />
   );
   const days = (from: 'tripStartFrom' | 'tripCloseFrom', to: 'tripStartTo' | 'tripCloseTo', label: string) => (
-    <ColumnFilter label={label} type="date" value={{ from: filters[from] ?? '', to: filters[to] ?? '' }} onChange={(r: { from: string; to: string }) => patch({ [from]: r.from, [to]: r.to })} />
+    <ColumnFilter label={label} type="date" value={filters[from] ?? ''} onChange={(d: string) => patch({ [from]: d, [to]: d })} />
   );
   const chips = [
     ...(filters.invoiceNumber ? [{ key: 'inv', label: 'Invoice', value: filters.invoiceNumber, onRemove: () => patch({ invoiceNumber: '' }) }] : []),

@@ -7,8 +7,7 @@ export interface DateRange { from?: string; to?: string }
 interface FilterProps {
   label: string;
   type?: 'text' | 'date' | 'select';
-  // text / select: a string; date: { from, to }
-  value: string | DateRange | undefined;
+  value: string | undefined;
   onChange: (v: any) => void;
   options?: FilterOption[];
   placeholder?: string;
@@ -19,10 +18,10 @@ interface FilterProps {
  * active and opens a compact panel suited to the column.
  *
  *   type="text"   a "contains" box          value: string
- *   type="date"   a from / to day range     value: { from, to }
+ *   type="date"   one day (that whole day)    value: 'YYYY-MM-DD'
  *   type="select" a pick-list               value: string (the option value; '' = all)
  *
- * The page keeps the value; this only edits it. Text and dates are applied with Apply / Enter, a pick-list
+ * The page keeps the value; this only edits it. Text is applied with Apply / Enter; a day or a pick-list
  * applies as soon as you choose.
  */
 export function ColumnFilter({ label, type = 'text', value, onChange, options = [], placeholder }: FilterProps) {
@@ -30,7 +29,7 @@ export function ColumnFilter({ label, type = 'text', value, onChange, options = 
   return (
     <Popover
       align="start"
-      width={type === 'date' ? 330 : 250}
+      width={type === 'date' ? 230 : 250}
       trigger={
         <button
           type="button"
@@ -48,8 +47,7 @@ export function ColumnFilter({ label, type = 'text', value, onChange, options = 
   );
 }
 
-function isActive(type: string, v: FilterProps['value']): boolean {
-  if (type === 'date') { const r = v as DateRange | undefined; return !!(r && (r.from || r.to)); }
+function isActive(_type: string, v: FilterProps['value']): boolean {
   return !!v;
 }
 
@@ -57,8 +55,7 @@ const inputStyle = { width: '100%', minWidth: 0, fontSize: 13 };
 const caption = { fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' };
 
 function Panel({ label, type, value, onChange, options, placeholder }: Required<Pick<FilterProps, 'label' | 'type' | 'options'>> & Pick<FilterProps, 'value' | 'onChange' | 'placeholder'>) {
-  const range = (value ?? {}) as DateRange;
-  const [draft, setDraft] = useState<any>(type === 'date' ? { from: range.from ?? '', to: range.to ?? '' } : ((value as string) ?? ''));
+  const [draft, setDraft] = useState<string>(value ?? '');
   const [q, setQ] = useState('');
   const shown = useMemo(() => options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())), [options, q]);
 
@@ -93,24 +90,22 @@ function Panel({ label, type, value, onChange, options, placeholder }: Required<
     );
   }
 
-  const apply = () => onChange(type === 'date' ? { from: draft.from || '', to: draft.to || '' } : String(draft).trim());
-  const clear = () => { setDraft(type === 'date' ? { from: '', to: '' } : ''); onChange(type === 'date' ? { from: '', to: '' } : ''); };
+  // a single picked day means that day, not "from then until now"
+  const apply = () => onChange(draft.trim());
+  const clear = () => { setDraft(''); onChange(''); };
   const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } };
 
   return (
     <div className="flex flex-col gap-2.5" onKeyDown={onKey}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</div>
       {type === 'date' ? (
-        <div className="grid grid-cols-2 gap-2">
-          <label><span style={caption}>From</span><input className="tv-input" style={inputStyle} type="date" value={draft.from} max={draft.to || undefined} onChange={(e) => setDraft((d: DateRange) => ({ ...d, from: e.target.value }))} /></label>
-          <label><span style={caption}>To</span><input className="tv-input" style={inputStyle} type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft((d: DateRange) => ({ ...d, to: e.target.value }))} /></label>
-        </div>
+        <input className="tv-input" style={inputStyle} type="date" autoFocus aria-label={label} value={draft} onChange={(e) => { setDraft(e.target.value); onChange(e.target.value); }} />
       ) : (
         <input className="tv-input" style={inputStyle} autoFocus placeholder={placeholder ?? `${label} contains…`} value={draft} onChange={(e) => setDraft(e.target.value)} />
       )}
       <div className="flex justify-between items-center">
         <button type="button" className="btn-ghost px-2 py-1" style={{ fontSize: 12 }} onClick={clear}>Clear</button>
-        <button type="button" className="btn-brand px-3 py-1" style={{ fontSize: 12 }} onClick={apply}>Apply</button>
+        {type !== 'date' && <button type="button" className="btn-brand px-3 py-1" style={{ fontSize: 12 }} onClick={apply}>Apply</button>}
       </div>
     </div>
   );
@@ -141,6 +136,6 @@ export function ActiveFilters({ chips, onClearAll }: { chips: { key: string; lab
 /** "5 Dec – 12 Dec", "from 5 Dec", "until 12 Dec" for a date chip. */
 export function rangeLabel(r: DateRange): string {
   const f = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  if (r.from && r.to) return `${f(r.from)} – ${f(r.to)}`;
+  if (r.from && r.to) return r.from === r.to ? f(r.from) : `${f(r.from)} – ${f(r.to)}`;
   return r.from ? `from ${f(r.from)}` : `until ${f(r.to as string)}`;
 }
