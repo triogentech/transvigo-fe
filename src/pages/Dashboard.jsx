@@ -14,7 +14,7 @@ import {
 } from '../components/ui.jsx';
 import { SkeletonCard, SkeletonTable, ErrorBanner } from '../components/states.tsx';
 import { useDashboardPage } from '../hooks/useDashboardPage';
-import { formatINR } from '../lib/utils.js';
+import { formatINR, routeText } from '../lib/utils.js';
 // useRole removed — Layout no longer exports role-switcher context
 
 // ─────────────────────────────────────────────
@@ -76,7 +76,7 @@ const TRIP_COLUMNS = [
     header: 'Route',
     render: (row) => (
       <span style={{ color: 'var(--text-primary)', fontSize: 13 }}>
-        {row.startPoint} → {row.endPoint}
+        {routeText(row)}
       </span>
     ),
   },
