@@ -16,7 +16,7 @@ import { SkeletonTable, ErrorBanner, EmptyState, LoadingButton } from '../compon
 import { SearchInput } from '../components/SearchInput';
 import { ColumnFilter, ActiveFilters, rangeLabel } from '../components/ColumnFilter';
 import { AsyncSelect } from '../components/AsyncSelect.tsx';
-import { cx, formatINR, dateTime, shortDate } from '../lib/utils.js';
+import { cx, formatINR, dateTime, shortDate, routeText } from '../lib/utils.js';
 import { useTripsPage } from '../hooks/useTripsPage.ts';
 import { getTripDetailPage } from '../api/pages.api.ts';
 import { getSelect, clearSelectCache } from '../api/select.api.ts';
@@ -947,7 +947,7 @@ function TripDetailModal({ tripId, open, onOpenChange, refreshKey = 0, onApprove
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                     <MapPin size={14} style={{ color: 'var(--teal)', flexShrink: 0 }} />
                     <span className="font-display" style={{ fontSize: 14, color: 'var(--text-primary)' }}>
-                      {trip.startPoint} <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle', color: 'var(--teal)' }} /> {trip.endPoint}
+                      {trip.startPoint || trip.endPoint ? <>{trip.startPoint || '?'} <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle', color: 'var(--teal)' }} /> {trip.endPoint || '?'}</> : <span style={{ color: 'var(--text-muted)' }}>Route not set. Add it with Edit details.</span>}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
@@ -1368,7 +1368,7 @@ export default function Trips() {
       key: 'from',
       header: 'From',
       className: 'whitespace-nowrap',
-      render: (row) => <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{row.startPoint}</span>,
+      render: (row) => <span style={{ fontSize: 13, color: row.startPoint ? 'var(--text-primary)' : 'var(--text-dim)' }}>{row.startPoint || '—'}</span>,
     },
     {
       key: 'touching',
@@ -1392,7 +1392,7 @@ export default function Trips() {
       render: (row) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-primary)' }}>
           <ArrowRight size={12} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-          {row.endPoint}
+          {row.endPoint || '—'}
         </span>
       ),
     },
@@ -1705,7 +1705,7 @@ export default function Trips() {
             </AlertDialog.Title>
             <AlertDialog.Description style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
               Cancel trip <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{cancelTrip?.tripNumber}</span>
-              {cancelTrip && ` (${cancelTrip.startPoint} → ${cancelTrip.endPoint})`}? This action cannot be undone.
+              {cancelTrip && ` (${routeText(cancelTrip)})`}? This action cannot be undone.
             </AlertDialog.Description>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
               <AlertDialog.Cancel asChild>

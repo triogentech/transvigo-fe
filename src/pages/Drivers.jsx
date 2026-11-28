@@ -10,7 +10,7 @@ import {
 import { SkeletonGrid, SkeletonTable, ErrorBanner, LoadingButton } from '../components/states';
 import { SearchInput } from '../components/SearchInput';
 import { AsyncSelect } from '../components/AsyncSelect.tsx';
-import { cx } from '../lib/utils.js';
+import { cx, routeText } from '../lib/utils.js';
 import { formatINR, shortDate } from '../lib/utils.js';
 import { useDriversPage } from '../hooks/pages/useDriversPage';
 import { useDriverDetail } from '../hooks/pages/useDriverDetail';
@@ -271,7 +271,7 @@ function TripHistoryTab({ recentTrips, loading }) {
       key: 'route',
       header: 'Route',
       render: (row) => (
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{row.startPoint} → {row.endPoint}</span>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{routeText(row)}</span>
       ),
     },
     {

@@ -88,3 +88,10 @@ export function expiryColor(days) {
   if (days < 60) return 'var(--warning)';
   return 'var(--success)';
 }
+
+/** "Mumbai → Pune"; a trip a driver created has no route until the office adds it. */
+export function routeText(trip) {
+  const from = (trip?.startPoint ?? '').trim();
+  const to = (trip?.endPoint ?? '').trim();
+  return !from && !to ? 'Route not set' : `${from || '?'} → ${to || '?'}`;
+}
