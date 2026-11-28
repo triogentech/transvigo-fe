@@ -55,6 +55,18 @@ export interface TripsPageParams {
   /** Column filters (combine with each other, the tabs and the search). */
   tripNumber?: string; vehicleNumber?: string; startFrom?: string; startTo?: string; endFrom?: string; endTo?: string;
 }
+export interface VendorPerformanceRow {
+  vendorId: string | null; vendorName: string; vendorCode: string | null;
+  departed: number; closed: number; fast: number; onTime: number; delayed: number; notJudged: number;
+  onTimePct: number | null; avgDelayMinutes: number; penaltyAmount: number;
+}
+export interface VendorPerformancePage {
+  month: string; from: string; to: string; fastMarginMinutes: number;
+  rows: VendorPerformanceRow[];
+  totals: Omit<VendorPerformanceRow, 'vendorId' | 'vendorName' | 'vendorCode'>;
+}
+export const getVendorPerformancePage = (month: string) => get<VendorPerformancePage>('/api/pages/vendor-performance', { month });
+
 export const getTripsPage = (params?: TripsPageParams) => get<TripsPage>('/api/pages/trips', params && withDayBounds(params));
 
 export interface TripDetailPage {

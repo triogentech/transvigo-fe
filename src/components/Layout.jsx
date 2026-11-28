@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Separator from '@radix-ui/react-separator';
 import {
-  AlertTriangle, ArrowRight, BarChart3, Bell, Building2, CheckCircle2, CircleDot, ClipboardList, CreditCard, FileSearch,
+  AlertTriangle, ArrowRight, BarChart3, Gauge, Bell, Building2, CheckCircle2, CircleDot, ClipboardList, CreditCard, FileSearch,
   Fuel, Info, Landmark, LayoutDashboard, LogOut, MapPin, Moon, Package,
   PackageSearch, ReceiptText, Wallet, Route as RouteIcon, Search, ShieldCheck, Sun, Truck,
   UserCog, Users, Warehouse, Wrench,
@@ -28,6 +28,7 @@ const NAV = [
     { label: 'Trips',      icon: RouteIcon,        to: '/trips',       permission: 'trips' },
     { label: 'Tickets',    icon: AlertTriangle,     to: '/tickets',     permission: 'tickets' },
     { label: 'Analytics',  icon: BarChart3,         to: '/analytics',   permission: 'vehicles' },
+    { label: 'Vendor Performance', icon: Gauge,     to: '/vendor-performance', permission: 'trips' },
     { label: 'Live Map',   icon: MapPin,            to: '/map',         badge: 'Soon' },
   ]},
   { group: 'WORKSHOP', items: [
