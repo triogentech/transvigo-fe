@@ -118,7 +118,7 @@ export default function PaymentTallyPage() {
     ...(filters.tripStartFrom || filters.tripStartTo ? [{ key: 'ts', label: 'Trip start', value: rangeLabel({ from: filters.tripStartFrom, to: filters.tripStartTo }), onRemove: () => patch({ tripStartFrom: '', tripStartTo: '' }) }] : []),
     ...(filters.tripCloseFrom || filters.tripCloseTo ? [{ key: 'tc', label: 'Trip close', value: rangeLabel({ from: filters.tripCloseFrom, to: filters.tripCloseTo }), onRemove: () => patch({ tripCloseFrom: '', tripCloseTo: '' }) }] : []),
     ...(filters.loadProviderId ? [{ key: 'ven', label: 'Vendor', value: companies.find((c) => c.value === filters.loadProviderId)?.label ?? 'selected', onRemove: () => patch({ loadProviderId: '' }) }] : []),
-    ...(filters.pendingMinDays ? [{ key: 'pd', label: 'Pending', value: PENDING_OPTS.find((o) => o.value === filters.pendingMinDays)?.label ?? `${filters.pendingMinDays}+ days`, onRemove: () => patch({ pendingMinDays: '' }) }] : []),
+    ...(filters.pendingMinDays ? [{ key: 'pd', label: 'Overdue', value: PENDING_OPTS.find((o) => o.value === filters.pendingMinDays)?.label ?? `${filters.pendingMinDays}+ days`, onRemove: () => patch({ pendingMinDays: '' }) }] : []),
     ...(filters.status ? [{ key: 'st', label: 'Payment', value: STATUS_OPTS.find((o) => o.value === filters.status)?.label ?? filters.status, onRemove: () => patch({ status: '' }) }] : []),
   ];
 
@@ -129,13 +129,13 @@ export default function PaymentTallyPage() {
     { key: 'tripStartDate', header: 'Trip Start', filter: days('tripStartFrom', 'tripStartTo', 'Trip Start'), render: (r: TripBill) => day(r.tripStartDate) },
     { key: 'tripCloseDate', header: 'Trip Close', filter: days('tripCloseFrom', 'tripCloseTo', 'Trip Close'), render: (r: TripBill) => day(r.tripCloseDate) },
     {
-      key: 'pendingDays', header: 'Pending',
-      filter: <ColumnFilter label="Pending for" type="select" options={PENDING_OPTS} value={filters.pendingMinDays ?? ''} onChange={(v: string) => patch({ pendingMinDays: v })} />,
+      key: 'pendingDays', header: 'Overdue',
+      filter: <ColumnFilter label="Overdue for" type="select" options={PENDING_OPTS} value={filters.pendingMinDays ?? ''} onChange={(v: string) => patch({ pendingMinDays: v })} />,
       render: (r: TripBill) => {
         if (r.pendingDays === null) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
         // waiting longer = louder: quiet up to a week, then warning, then danger
         const color = r.pendingDays > 30 ? 'var(--danger)' : r.pendingDays > 15 ? 'var(--warning)' : r.pendingDays > 7 ? 'var(--text-primary)' : 'var(--text-muted)';
-        return <span className="font-mono" style={{ color, fontWeight: r.pendingDays > 15 ? 600 : 400 }} title={`Waiting since the trip closed on ${day(r.tripCloseDate)}`}>{r.pendingDays === 0 ? 'Today' : `${r.pendingDays} ${r.pendingDays === 1 ? 'day' : 'days'}`}</span>;
+        return <span className="font-mono" style={{ color, fontWeight: r.pendingDays > 15 ? 600 : 400 }} title={`Overdue since the trip ended on ${day(r.tripCloseDate)}`}>{r.pendingDays === 0 ? 'Today' : `${r.pendingDays} ${r.pendingDays === 1 ? 'day' : 'days'}`}</span>;
       },
     },
     { key: 'route', header: 'Route' },
@@ -185,7 +185,7 @@ export default function PaymentTallyPage() {
 
       {summary && summary.aging.some((g) => g.bills > 0) && (
         <div className="tv-card-flat" style={{ padding: '12px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Still to receive, by how long it has been waiting since the trip closed</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Overdue: still to receive, by days since the trip ended</div>
           <div className="grid grid-cols-5 gap-3">
             {summary.aging.map((g, i) => (
               <div key={g.key} style={{ opacity: g.bills ? 1 : 0.45 }}>
