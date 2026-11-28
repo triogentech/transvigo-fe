@@ -657,10 +657,14 @@ export interface TripBill {
   transferDate: string | null; rentPaidAmount: number;
   vehicleNumber: string | null; vendorId: string | null; vendorName: string | null; vendorCode: string | null;
   totalToPay: number; amountReceived: number; amountRemaining: number; status: TripBillStatus;
+  /** Days since the trip closed while anything is still to receive; null once paid. */
+  pendingDays: number | null;
 }
 export interface TripBillSummary {
   bills: number; totalBilled: number; totalReceived: number; totalRemaining: number;
   pending: number; partial: number; paid: number;
+  /** What is still to receive, by how many days it has been waiting since the trip closed. */
+  aging: { key: string; fromDays: number; toDays: number | null; bills: number; amount: number }[];
 }
 export interface UpdateTripBillBody {
   invoiceNumber?: string; penaltyAmount?: number; penaltyRemark?: string | null;
