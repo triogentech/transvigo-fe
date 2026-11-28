@@ -103,6 +103,7 @@ export default function PaymentTallyPage() {
   // one place to set / clear a filter (an empty value removes it)
   const patch = (o: Partial<Record<keyof TripBillFilters, string | undefined>>) =>
     setFilters((f) => { const n: Record<string, unknown> = { ...f }; for (const [k, v] of Object.entries(o)) { if (v) n[k] = v; else delete n[k]; } return n as TripBillFilters; });
+  const PENDING_OPTS = [{ value: '8', label: 'Over 7 days' }, { value: '16', label: 'Over 15 days' }, { value: '31', label: 'Over 30 days' }, { value: '61', label: 'Over 60 days' }];
   const STATUS_OPTS = [{ value: 'pending', label: 'Pending' }, { value: 'partial', label: 'Part paid' }, { value: 'paid', label: 'Paid' }];
   const text = (key: 'invoiceNumber' | 'tripNumber' | 'vehicleNumber', label: string) => (
     <ColumnFilter label={label} type="text" value={filters[key] ?? ''} onChange={(v: string) => patch({ [key]: v })} />
@@ -117,6 +118,7 @@ export default function PaymentTallyPage() {
     ...(filters.tripStartFrom || filters.tripStartTo ? [{ key: 'ts', label: 'Trip start', value: rangeLabel({ from: filters.tripStartFrom, to: filters.tripStartTo }), onRemove: () => patch({ tripStartFrom: '', tripStartTo: '' }) }] : []),
     ...(filters.tripCloseFrom || filters.tripCloseTo ? [{ key: 'tc', label: 'Trip close', value: rangeLabel({ from: filters.tripCloseFrom, to: filters.tripCloseTo }), onRemove: () => patch({ tripCloseFrom: '', tripCloseTo: '' }) }] : []),
     ...(filters.loadProviderId ? [{ key: 'ven', label: 'Vendor', value: companies.find((c) => c.value === filters.loadProviderId)?.label ?? 'selected', onRemove: () => patch({ loadProviderId: '' }) }] : []),
+    ...(filters.pendingMinDays ? [{ key: 'pd', label: 'Pending', value: PENDING_OPTS.find((o) => o.value === filters.pendingMinDays)?.label ?? `${filters.pendingMinDays}+ days`, onRemove: () => patch({ pendingMinDays: '' }) }] : []),
     ...(filters.status ? [{ key: 'st', label: 'Payment', value: STATUS_OPTS.find((o) => o.value === filters.status)?.label ?? filters.status, onRemove: () => patch({ status: '' }) }] : []),
   ];
 
@@ -126,6 +128,16 @@ export default function PaymentTallyPage() {
     { key: 'tripNumber', header: 'Trip No', filter: text('tripNumber', 'Trip No'), render: (r: TripBill) => mono(r.tripNumber) },
     { key: 'tripStartDate', header: 'Trip Start', filter: days('tripStartFrom', 'tripStartTo', 'Trip Start'), render: (r: TripBill) => day(r.tripStartDate) },
     { key: 'tripCloseDate', header: 'Trip Close', filter: days('tripCloseFrom', 'tripCloseTo', 'Trip Close'), render: (r: TripBill) => day(r.tripCloseDate) },
+    {
+      key: 'pendingDays', header: 'Pending',
+      filter: <ColumnFilter label="Pending for" type="select" options={PENDING_OPTS} value={filters.pendingMinDays ?? ''} onChange={(v: string) => patch({ pendingMinDays: v })} />,
+      render: (r: TripBill) => {
+        if (r.pendingDays === null) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
+        // waiting longer = louder: quiet up to a week, then warning, then danger
+        const color = r.pendingDays > 30 ? 'var(--danger)' : r.pendingDays > 15 ? 'var(--warning)' : r.pendingDays > 7 ? 'var(--text-primary)' : 'var(--text-muted)';
+        return <span className="font-mono" style={{ color, fontWeight: r.pendingDays > 15 ? 600 : 400 }} title={`Waiting since the trip closed on ${day(r.tripCloseDate)}`}>{r.pendingDays === 0 ? 'Today' : `${r.pendingDays} ${r.pendingDays === 1 ? 'day' : 'days'}`}</span>;
+      },
+    },
     { key: 'route', header: 'Route' },
     { key: 'vehicleNumber', header: 'Vehicle', filter: text('vehicleNumber', 'Vehicle'), render: (r: TripBill) => r.vehicleNumber ?? '—' },
     { key: 'vendorName', header: 'Vendor', filter: <ColumnFilter label="Vendor" type="select" options={companies} value={filters.loadProviderId ?? ''} onChange={(v: string) => patch({ loadProviderId: v })} />, render: (r: TripBill) => r.vendorName ?? '—' },
@@ -170,6 +182,21 @@ export default function PaymentTallyPage() {
           <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{summary?.pending ?? 0} pending · {summary?.partial ?? 0} part · {summary?.paid ?? 0} paid</span>
         </StatCard>
       </div>
+
+      {summary && summary.aging.some((g) => g.bills > 0) && (
+        <div className="tv-card-flat" style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Still to receive, by how long it has been waiting since the trip closed</div>
+          <div className="grid grid-cols-5 gap-3">
+            {summary.aging.map((g, i) => (
+              <div key={g.key} style={{ opacity: g.bills ? 1 : 0.45 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{g.toDays === null ? `${g.fromDays}+ days` : `${g.fromDays}–${g.toDays} days`}</div>
+                <div className="font-display" style={{ fontSize: 17, fontWeight: 700, color: g.bills && i >= 3 ? 'var(--danger)' : g.bills && i === 2 ? 'var(--warning)' : 'var(--text-primary)' }}>{inr(g.amount)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{g.bills} {g.bills === 1 ? 'bill' : 'bills'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3 flex-wrap items-center">
         <SearchInput width={320} value={filters.search ?? ''} onChange={(v: string) => patch({ search: v })} placeholder="Search invoice, trip, vehicle or vendor…" />

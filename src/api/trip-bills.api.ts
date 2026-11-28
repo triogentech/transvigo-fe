@@ -11,6 +11,8 @@ export interface TripBillFilters {
   /** Column filters: they combine with each other, the status and the search. */
   invoiceNumber?: string;
   tripNumber?: string;
+  /** Only bills waiting this many days or more, counted from the day the trip closed. */
+  pendingMinDays?: string;
   vehicleNumber?: string;
   tripStartFrom?: string;
   tripStartTo?: string;
